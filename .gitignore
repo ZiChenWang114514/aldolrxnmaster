@@ -1,0 +1,42 @@
+# External SOTA repos (13GB)
+external/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.eggs/
+
+# Data (raw is tracked via DVC or checksums, not git)
+data/raw/
+data/interim/
+data/processed/
+data/quality_report/
+
+# Results
+results/models/
+results/predictions/
+
+# Environments
+*.env
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/*.ipynb
+
+# Logs
+wandb/
+lightning_logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

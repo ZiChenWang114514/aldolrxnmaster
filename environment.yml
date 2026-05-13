@@ -1,0 +1,35 @@
+name: aldol-rxn
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.11
+  - rdkit>=2024.09
+  - numpy>=1.26
+  - pandas>=2.2
+  - scipy>=1.14
+  - matplotlib>=3.9
+  - seaborn>=0.13
+  - scikit-learn>=1.5
+  - jupyter
+  - ipykernel
+  - pytest>=8.0
+  - pip
+  - pip:
+    - torch>=2.5
+    - torchvision
+    - torchaudio
+    - torch-geometric>=2.5
+    - xgboost>=2.1
+    - lightgbm>=4.5
+    - optuna>=4.0
+    - lightning>=2.5
+    - transformers>=4.40
+    - tokenizers
+    - sentencepiece
+    - shap>=0.45
+    - tqdm
+    - rich
+    - pyyaml
+    - wandb
