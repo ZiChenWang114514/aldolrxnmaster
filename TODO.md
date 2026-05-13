@@ -93,23 +93,37 @@ Current best (ChiralAldol-Stack 0.725) is far from 0.90+ accuracy needed for pra
   - 在 ChiralAldol-XGB base learner 中尝试 Focal Loss 风格的 scale_pos_weight 调整
   - 重点提升 C3 (syn-S) 的准确率
 
-### Phase B — 工程量较大（A 阶段有提升后执行）
+### Phase A-cont — 快速验证
 
-- [ ] **B1: xTB 电子描述符**
-  - GFN2-xTB 计算烯醇盐和醛的 HOMO-LUMO gap、Fukui f-/f+、偶极矩
-  - 提取 Cα 的 f- 指数（亲核位点）和醛羰基碳的 f+ 指数（亲电位点）
+- [x] **A2: 对映体增强** — **无效，已放弃** (2026-05-13)
+  - 94.5% 底物对仅含单侧辅基，理论上可增强 1546 条
+  - 实测: temporal -1.8%, scaffold -10.5%, grouped -0.6% → 全部下降
+  - 原因: 特征层翻转(Vbur_si↔re, sin_τ→-sin_τ)是近似非精确的；
+    模型已通过 aux_config_R + Vbur_diff 符号隐式学到 R/S 对称性
+
+- [ ] **A4: 类别不平衡专项处理**
+  - C1 (anti-1) 仅 10.3%，C2 (anti-2) 仅 7.4%
+  - 尝试 Focal Loss / SMOTE / class-weighted XGBoost 调整
+  - 重点: V2-XGB 的 C1 仍只有 60%（temporal）
+
+### Phase B — xTB 电子描述符（中等工作量）
+
+- [ ] **B1: GFN2-xTB 电子描述符**
+  - 计算烯醇盐和醛的 HOMO-LUMO gap、Fukui f⁻/f⁺、偶极矩
+  - 提取 Cα 的 f⁻ 指数（亲核位点）和醛羰基碳的 f⁺ 指数（亲电位点）
   - 工具: xtb CLI + Python subprocess，或 tblite Python binding
+  - 预期收益: +2-4%（电子效应对 C1 anti 类可能最有帮助）
 
-- [ ] **B2: 准过渡态 (qTS) 建模** ← 最高天花板，工程量最大
+### Phase C — qTS 过渡态建模（最高天花板，最大工程量）
+
+- [ ] **C1: 准过渡态 (qTS) 建模**
   - 构建 Zimmerman-Traxler 六元环椅式骨架模板
   - 固定新生 C-C 键距离 ~2.1 Å + 金属-O 配位约束
   - GFN2-xTB 约束优化 4 条竞争通道（si/re × chair/twist）
   - 提取 ΔE_qTS（相对准活化能）作为关键特征
-  - 规模: 1822 反应 × 4 通道 = ~7300 次 xTB 计算（约数小时）
-
-- [ ] **B3: 迁移学习特征增强**
-  - 从 ChemBERTa/RXNFP 提取预训练反应 embedding 作为附加特征
-  - 与 A1 醛基特征拼接后重新训练 Stacking
+  - 规模: 1822 反应 × 4 通道 = ~7300 次 xTB 计算
+  - 预期收益: +5-10%（直接提供物理决定量，替代 sin_tau1 的间接代理）
+  - 参考: Cell Reports Phys. Sci. 2024, DOI: 10.1016/j.xcrp.2024.102043
 
 ---
 
