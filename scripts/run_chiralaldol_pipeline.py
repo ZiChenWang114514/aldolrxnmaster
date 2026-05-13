@@ -167,6 +167,98 @@ def stage3_steric_features(enolates_df, ensembles):
 
 
 # ============================================================
+#  Stage 3b: Aldehyde steric descriptor computation
+# ============================================================
+
+def stage3b_aldehyde_features():
+    """Compute 3D steric descriptors for aldehyde R-groups.
+
+    Loads Aldehyde SMILES from evans_clean.csv, generates conformer ensembles
+    for each unique aldehyde, computes Sterimol + Vbur_total, and saves
+    aldehyde_steric_features.csv (1822 × 10).
+    """
+    from chiralaldol.conformer_sampler import generate_conformer_ensemble
+    from chiralaldol.aldehyde_steric import (
+        ALDEHYDE_STERIC_DESC_NAMES,
+        compute_aldehyde_ensemble_descriptors,
+        strip_atom_map,
+    )
+
+    out_path = CHIRALALDOL_DIR / "aldehyde_steric_features.csv"
+    if out_path.exists():
+        df = pd.read_csv(out_path)
+        logger.info(f"Stage 3b SKIP: aldehyde_steric_features.csv exists ({df.shape})")
+        return df
+
+    ckpt_path = CHIRALALDOL_DIR / "aldehyde_ensembles_ckpt.pkl"
+
+    # Load aldehyde SMILES (mapped → strip atom map → canonical)
+    evans = pd.read_csv(PROJECT / "data" / "processed" / "evans_clean.csv")
+    raw_smiles = evans["Aldehyde"].fillna("").tolist()
+
+    # Strip atom maps; record clean SMILES per row
+    clean_smiles = []
+    for s in raw_smiles:
+        cs = strip_atom_map(s) if s else None
+        clean_smiles.append(cs)
+
+    # Deduplicate: compute conformers only for unique valid SMILES
+    unique_smiles = list({s for s in clean_smiles if s is not None})
+    logger.info(f"Stage 3b: {len(unique_smiles)} unique aldehydes from {len(clean_smiles)} rows")
+
+    # Load checkpoint if exists
+    ens_cache: dict[str, dict | None] = {}
+    if ckpt_path.exists():
+        with open(ckpt_path, "rb") as f:
+            ens_cache = pickle.load(f)
+        logger.info(f"  Resumed from checkpoint: {len(ens_cache)} cached")
+
+    # Generate conformer ensembles for missing unique aldehydes
+    todo = [s for s in unique_smiles if s not in ens_cache]
+    logger.info(f"  Computing {len(todo)} new conformer ensembles...")
+    t0 = time.time()
+    for idx, smi in enumerate(todo):
+        ens = generate_conformer_ensemble(smi, n_confs=100, n_threads=4)
+        ens_cache[smi] = ens
+        if (idx + 1) % 100 == 0 or idx == len(todo) - 1:
+            elapsed = time.time() - t0
+            rate = (idx + 1) / max(elapsed, 1)
+            remaining = (len(todo) - idx - 1) / max(rate, 0.01)
+            n_ok = sum(1 for v in ens_cache.values() if v is not None)
+            logger.info(f"  [{idx+1}/{len(todo)}] ok={n_ok} | "
+                        f"{elapsed:.0f}s | ~{remaining:.0f}s left")
+            with open(ckpt_path, "wb") as f:
+                pickle.dump(ens_cache, f)
+
+    # Compute steric descriptors per row (map unique ensemble → all rows)
+    zero_row = {k: 0.0 for k in ALDEHYDE_STERIC_DESC_NAMES}
+    desc_cache: dict[str, dict | None] = {}
+    for smi in unique_smiles:
+        ens = ens_cache.get(smi)
+        desc_cache[smi] = compute_aldehyde_ensemble_descriptors(smi, ens) if ens else None
+
+    rows = []
+    n_ok = 0
+    for smi in clean_smiles:
+        desc = desc_cache.get(smi) if smi else None
+        if desc is None:
+            rows.append(zero_row.copy())
+        else:
+            rows.append({k: desc.get(k, 0.0) for k in ALDEHYDE_STERIC_DESC_NAMES})
+            n_ok += 1
+
+    df = pd.DataFrame(rows)[ALDEHYDE_STERIC_DESC_NAMES]
+    df.to_csv(out_path, index=False)
+
+    # Clean up checkpoint
+    if ckpt_path.exists():
+        ckpt_path.unlink()
+
+    logger.info(f"Stage 3b DONE: {n_ok}/{len(clean_smiles)} valid | saved {out_path}")
+    return df
+
+
+# ============================================================
 #  Stage 4: Feature integration + model training
 # ============================================================
 
@@ -249,6 +341,17 @@ def stage4_train_and_evaluate():
         pred_dir.mkdir(parents=True, exist_ok=True)
         out.to_csv(pred_dir / f"{name}_{split_name}.csv", index=False)
         return metrics
+
+    # Load aldehyde steric features (Stage 3b output)
+    ald_path = CHIRALALDOL_DIR / "aldehyde_steric_features.csv"
+    if ald_path.exists():
+        ald_df = pd.read_csv(ald_path)
+        X_ald = ald_df.values.astype(np.float32)
+        np.nan_to_num(X_ald, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+        logger.info(f"Loaded aldehyde steric features: {X_ald.shape}")
+    else:
+        logger.warning("aldehyde_steric_features.csv not found — V2 models will be skipped")
+        X_ald = None
 
     # Run on all splits
     splits = ["evans_temporal", "evans_scaffold", "evans_grouped_random_seed42"]
@@ -338,6 +441,45 @@ def stage4_train_and_evaluate():
         prob_stack = meta.predict_proba(X_meta_test)
         eval_save("chiralaldol_stacking", y[te], y_stack, prob_stack, te, split_name)
 
+        # ---- V2 Models: enolate_steric(24) + ald_steric(10) + cond(35) + aux(6) = 75d ----
+        if X_ald is not None:
+            logger.info("\n--- ChiralAldolV2-XGB ---")
+            X_full_v2 = np.hstack([X_steric, X_ald, X_cond, X_aux])  # 75d
+            np.nan_to_num(X_full_v2, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+
+            # Model V1: ChiralAldolV2-XGB (75d single model)
+            m_v2 = train_xgb(X_full_v2[tr], y[tr], X_full_v2[va], y[va])
+            prob_v2_test = m_v2.predict_proba(X_full_v2[te])
+            eval_save("chiralaldol_v2_xgboost", y[te], m_v2.predict(X_full_v2[te]),
+                      prob_v2_test, te, split_name)
+
+            # Model V2: ChiralAldolV2-Stack (V2-XGB + DRFP+Cond → LogReg)
+            # Reuse m_drfp (DRFP+Cond base) and prob_B_test already computed above
+            logger.info("\n--- ChiralAldolV2-Stack ---")
+            oof_V2 = np.zeros((len(tr), 4))
+            oof_B2 = np.zeros((len(tr), 4))
+
+            for fold_i, (fold_tr, fold_va) in enumerate(skf.split(X_full_v2[tr], y[tr])):
+                fold_tr_idx = tr[fold_tr]
+                fold_va_idx = tr[fold_va]
+                m_v2f = train_xgb(X_full_v2[fold_tr_idx], y[fold_tr_idx],
+                                  X_full_v2[fold_va_idx], y[fold_va_idx])
+                m_bf = train_xgb(X_drfp_cond[fold_tr_idx], y[fold_tr_idx],
+                                 X_drfp_cond[fold_va_idx], y[fold_va_idx])
+                oof_V2[fold_va] = m_v2f.predict_proba(X_full_v2[fold_va_idx])
+                oof_B2[fold_va] = m_bf.predict_proba(X_drfp_cond[fold_va_idx])
+
+            X_meta_train_v2 = np.hstack([oof_V2, oof_B2])  # (n_train, 8)
+            meta_v2 = LogisticRegression(C=1.0, max_iter=1000, random_state=42,
+                                         class_weight="balanced")
+            meta_v2.fit(X_meta_train_v2, y[tr])
+
+            # Test: full-train V2-XGB + existing m_drfp
+            prob_v2_meta_test = np.hstack([prob_v2_test, prob_B_test])
+            y_stack_v2 = meta_v2.predict(prob_v2_meta_test)
+            prob_stack_v2 = meta_v2.predict_proba(prob_v2_meta_test)
+            eval_save("chiralaldol_v2_stacking", y[te], y_stack_v2, prob_stack_v2, te, split_name)
+
     logger.info("\nStage 4 DONE! All models trained and evaluated.")
 
 
@@ -361,11 +503,15 @@ if __name__ == "__main__":
     ensembles = stage2_conformers(enolates, n_confs=100, n_threads=8)
 
     # Stage 3
-    logger.info("\n[Stage 3] Steric descriptor computation")
+    logger.info("\n[Stage 3] Steric descriptor computation (enolate)")
     stage3_steric_features(enolates, ensembles)
 
+    # Stage 3b
+    logger.info("\n[Stage 3b] Aldehyde steric descriptor computation")
+    stage3b_aldehyde_features()
+
     # Stage 4
-    logger.info("\n[Stage 4] Model training & evaluation")
+    logger.info("\n[Stage 4] Model training & evaluation (including V2 models)")
     stage4_train_and_evaluate()
 
     logger.info(f"\nTotal pipeline time: {time.time()-t_start:.0f}s")

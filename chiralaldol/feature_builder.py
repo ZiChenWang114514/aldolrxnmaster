@@ -126,6 +126,73 @@ def build_chiralaldol_features(project_dir: Path) -> tuple[np.ndarray, list[str]
     return X, feature_names
 
 
+def build_chiralaldol_v2_features(project_dir: Path) -> tuple[np.ndarray, list[str]]:
+    """Build the ChiralAldol V2 feature matrix (75d).
+
+    Combines:
+      1. Enolate 3D steric descriptors (24d, M3)
+      2. Aldehyde 3D steric descriptors (10d, M3b) — NEW
+      3. Reaction conditions (35d)
+      4. Auxiliary chirality (6d)
+
+    Returns (X, feature_names) where X is (1822, 75) float32 array.
+    """
+    from .aldehyde_steric import ALDEHYDE_STERIC_DESC_NAMES
+
+    feat_dir = project_dir / "data" / "processed" / "features"
+    chiralaldol_dir = project_dir / "data" / "processed" / "chiralaldol"
+
+    # 1. Enolate steric features (24d)
+    steric_path = chiralaldol_dir / "steric_features.csv"
+    steric_df = pd.read_csv(steric_path)
+    logger.info(f"Loaded enolate steric features: {steric_df.shape}")
+
+    # 2. Aldehyde steric features (10d)
+    ald_path = chiralaldol_dir / "aldehyde_steric_features.csv"
+    if not ald_path.exists():
+        raise FileNotFoundError(
+            f"Aldehyde steric features not found: {ald_path}. "
+            "Run stage3b_aldehyde_features() first."
+        )
+    ald_df = pd.read_csv(ald_path)
+    logger.info(f"Loaded aldehyde steric features: {ald_df.shape}")
+
+    # 3. Reaction conditions (35d)
+    cond_df = pd.read_csv(feat_dir / "reaction_conditions.csv")
+    logger.info(f"Loaded reaction conditions: {cond_df.shape}")
+
+    # 4. Auxiliary chirality (6d)
+    aux_df = pd.read_csv(feat_dir / "auxchiral_features.csv")
+    logger.info(f"Loaded auxiliary chirality: {aux_df.shape}")
+
+    assert len(steric_df) == len(ald_df) == len(cond_df) == len(aux_df), (
+        f"Row count mismatch: enolate={len(steric_df)}, ald={len(ald_df)}, "
+        f"cond={len(cond_df)}, aux={len(aux_df)}"
+    )
+
+    steric_cols = list(steric_df.columns)
+    ald_cols = list(ald_df.columns)
+    cond_cols = list(cond_df.columns)
+    aux_cols = list(aux_df.columns)
+
+    X_steric = steric_df.values.astype(np.float32)
+    X_ald = ald_df.values.astype(np.float32)
+    X_cond = cond_df.values.astype(np.float32)
+    X_aux = aux_df.values.astype(np.float32)
+
+    X = np.hstack([X_steric, X_ald, X_cond, X_aux])
+    feature_names = steric_cols + ald_cols + cond_cols + aux_cols
+
+    np.nan_to_num(X, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+
+    logger.info(
+        f"ChiralAldol V2 features: {X.shape} "
+        f"(enolate_steric={X_steric.shape[1]}, ald_steric={X_ald.shape[1]}, "
+        f"cond={X_cond.shape[1]}, aux={X_aux.shape[1]})"
+    )
+    return X, feature_names
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
     project = Path("/data2/zcwang/aldolrxnmaster")
