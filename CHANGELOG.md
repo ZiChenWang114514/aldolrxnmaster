@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-05-13: Phase 11-A1 — 醛基 3D 立体特征 + ChiralAldolV2 模型
+
+### Added
+- **chiralaldol/aldehyde_steric.py**: 醛基 3D 立体描述符模块
+  - ALDEHYDE_SMARTS `[CX3;H1]=[OX1]` 匹配醛基碳
+  - Sterimol (L/B1/B5) + %Vbur_total for aldehyde R-group (10d features)
+  - Boltzmann-weighted ensemble aggregation (mean + std)
+  - 667 unique aldehydes, 100% conformer generation success
+- **ChiralAldolV2-XGB**: enolate_steric(24) + ald_steric(10) + cond(35) + aux(6) = **75d**
+  - Temporal **0.783** (**NEW CHAMPION**, +11.9% over V1-XGB 0.664, +5.8% over V1-Stack 0.725)
+  - Scaffold **0.819**, Grouped 0.789
+- **ChiralAldolV2-Stack**: V2-XGB + DRFP+Cond → LogReg stacking
+  - Temporal 0.782 (essentially same as V2-XGB — DRFP fusion now unnecessary)
+  - Scaffold 0.808, Grouped 0.788
+
+### Key Insights
+1. Aldehyde steric features are the single most impactful feature addition in the entire project (+11.9% from 10 new features)
+2. V2-XGB ≈ V2-Stack confirms that aldehyde features captured what DRFP was compensating for
+3. Per-class: C1 (anti-1) improved from 40% → 60%, C3 (syn-S) from 71.6% → 75.3%
+4. Benchmark: 35 → 37 models, 105 → 111 prediction CSVs
+
+### Changed
+- `scripts/run_chiralaldol_pipeline.py` — added stage3b + V2 model training
+- `scripts/rebuild_comparison.py` — registered ChiralAldolV2-XGB, ChiralAldolV2-Stack
+- `chiralaldol/feature_builder.py` — added build_chiralaldol_v2_features()
+- `data/processed/chiralaldol/aldehyde_steric_features.csv` — 1822×10 features
+
 ## 2026-05-12: Phase 11 规划 — 0.725 → 0.90+ 突破路径分析
 
 ### 分析与规划

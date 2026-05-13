@@ -1,14 +1,13 @@
 # AldolRxnMaster — Publication Roadmap (JACS Target)
 
-## Project Status (2026-05-10)
+## Project Status (2026-05-13)
 
 - **Data**: 4751 → 4447 (deduplicated) → 1822 Evans clean, 7-step pipeline
-- **Features**: Morgan FP, DRFP, RXNFP, RDKit desc, reaction conditions (35d), aux chirality (6d), **3D steric descriptors (24d, NEW)**
-- **Models**: 32 unique × 3 splits = 96 prediction CSVs
-- **NEW Champion**: ChiralAldol-Stack, temporal bal_acc=**0.725** (stacking of 3D steric + DRFP)
-- **Previous Champion**: DRFP+Cond+XGBoost, temporal bal_acc=0.711
-- **Standalone novel method**: ChiralAldol-XGB, temporal bal_acc=0.664 (rank 4/35)
-- **Gap to practical utility**: 0.725 → 0.90+ needed for real synthetic planning
+- **Features**: Morgan FP, DRFP, RXNFP, RDKit desc, cond(35d), aux(6d), **enolate 3D steric(24d)**, **aldehyde 3D steric(10d, Phase 11-A1)**
+- **Models**: 37 unique × 3 splits = 111 prediction CSVs
+- **NEW Champion**: ChiralAldolV2-XGB (75d), temporal bal_acc=**0.783** (+11.9% over V1-XGB)
+- **Previous Champion**: ChiralAldol-Stack (0.725) → surpassed by V2-XGB (+5.8%)
+- **Gap to practical utility**: 0.783 → 0.90+ needed for real synthetic planning
 
 ---
 
@@ -72,10 +71,11 @@ Current best (ChiralAldol-Stack 0.725) is far from 0.90+ accuracy needed for pra
 
 ### Phase A — 立即可执行（复用现有管线）
 
-- [ ] **A1: 醛基 Sterimol/%Vbur 特征** ← 优先级最高
-  - 对醛的 R 基团做构象采样 + Sterimol (L/B1/B5) + %Vbur
-  - 直接复用 `chiralaldol/steric_descriptors.py` 中的现有函数，换算作对象为醛
-  - 新增 ~12d 特征，与烯醇盐 24d 特征分开拼接（aldehyde_steric_12d）
+- [x] **A1: 醛基 Sterimol/%Vbur 特征** ✓ DONE (2026-05-13)
+  - `chiralaldol/aldehyde_steric.py` — 667 unique aldehydes, 100% success
+  - 新增 10d 特征 (L/B1/B5 + Vbur_total, mean/std + metadata)
+  - **ChiralAldolV2-XGB**: 0.783 temporal (+11.9% over V1-XGB)
+  - **ChiralAldolV2-Stack**: 0.782 temporal (DRFP fusion now marginal)
   - 输出: `data/processed/chiralaldol/aldehyde_steric_features.csv`
 
 - [ ] **A2: 确认对映体增强可行性**

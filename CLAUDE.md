@@ -2,13 +2,14 @@
 
 Evans 不对称 aldol 反应 4-class 立体化学预测 — 35 模型 benchmark + ChiralAldol 创新方法。
 
-## 当前状态 (2026-05-12)
+## 当前状态 (2026-05-13)
 
-- **35 模型 × 3 splits = 105 prediction CSVs**
-- **冠军**: ChiralAldol-Stack (Stacking fusion of 3D steric + DRFP), temporal bal_acc=**0.725**
+- **37 模型 × 3 splits = 111 prediction CSVs**
+- **冠军**: ChiralAldolV2-XGB (enolate+aldehyde 3D steric + cond + aux, 75d), temporal bal_acc=**0.783**
+- **前冠军**: ChiralAldol-Stack (0.725), 被 V2-XGB 超越 +5.8%
 - **数据**: 1822 Evans 反应, 4-class joint Ca×Cb label
 - **SHAP**: sin_tau1 (#1), Vbur_diff (#4), top-10 中 3D 特征占 6/10
-- **Phase 11 启动**: 0.725 → 0.90+ 攻坚，优先方向 A1（醛基 Sterimol/%Vbur）→ A2/A3 → B1 qTS
+- **Phase 11-A1 完成**: 醛基 Sterimol/%Vbur 10d → 0.664→0.783 (+11.9%)
 
 ## 环境
 
