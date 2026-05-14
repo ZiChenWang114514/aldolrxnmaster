@@ -27,7 +27,6 @@ Features (12d total):
 """
 
 import logging
-import signal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -82,7 +81,10 @@ def find_CHO_idx(mol: Chem.Mol) -> int | None:
 # ─── 3D generation ──────────────────────────────────────────────────────────
 
 def smiles_to_3d(smiles: str) -> tuple[list[int], np.ndarray] | tuple[None, None]:
-    """Generate a single 3D conformer (ETKDG+MMFF).
+    """Generate a single 3D conformer (ETKDG + light MMFF polish).
+
+    Keeps MMFF iterations low (200) so large Evans auxiliary enolates don't
+    spend minutes on geometry alone — GFN2-xTB is tolerant of imperfect input.
 
     Returns:
         (atomic_nums, coords_ang) with explicit Hs, or (None, None) on failure.
@@ -255,19 +257,11 @@ def compute_aldehyde_xtb(smiles: str) -> dict:
 
 # ─── Worker functions (top-level for pickling) ──────────────────────────────
 
-def _timeout_handler(signum, frame):
-    raise TimeoutError("xTB worker timed out")
-
-
 def _worker_enolate(args):
     smiles, idx_list = args
     try:
-        signal.signal(signal.SIGALRM, _timeout_handler)
-        signal.alarm(120)   # 120 s hard limit per molecule
         result = compute_enolate_xtb(smiles)
-        signal.alarm(0)
     except Exception:
-        signal.alarm(0)
         result = {k: float("nan") for k in ENOLATE_XTB_NAMES}
     return smiles, result, idx_list
 
@@ -275,12 +269,8 @@ def _worker_enolate(args):
 def _worker_aldehyde(args):
     smiles, idx_list = args
     try:
-        signal.signal(signal.SIGALRM, _timeout_handler)
-        signal.alarm(120)   # 120 s hard limit per molecule
         result = compute_aldehyde_xtb(smiles)
-        signal.alarm(0)
     except Exception:
-        signal.alarm(0)
         result = {k: float("nan") for k in ALDEHYDE_XTB_NAMES}
     return smiles, result, idx_list
 
@@ -352,25 +342,69 @@ def compute_xtb_features_batch(
         logger.info(f"Resumed from checkpoint: {len(enol_results)} enolates, "
                     f"{len(ald_results)} aldehydes already done")
 
+    # Per-future timeout: skip molecules stuck in C-level tblite loops.
+    # SIGALRM is unreliable for C extensions; instead we use as_completed(timeout=)
+    # to detect a stuck batch and force-kill remaining workers.
+    PER_MOL_TIMEOUT = 150   # seconds before declaring a molecule stuck
+
+    def _run_batch(worker_fn, todo, results, feat_names, label):
+        """Submit a batch, collect results, skip timed-out molecules."""
+        n_done = 0
+        # Small batch = n_workers so a single stuck molecule only blocks one batch (≤5 min)
+        BATCH = n_workers
+        for chunk_start in range(0, len(todo), BATCH):
+            chunk = todo[chunk_start: chunk_start + BATCH]
+            pool = ProcessPoolExecutor(max_workers=n_workers)
+            pending = {pool.submit(worker_fn, t): t for t in chunk}
+            batch_timeout = PER_MOL_TIMEOUT * 3  # 450s max per n_workers-molecule batch
+            try:
+                for fut in as_completed(pending, timeout=batch_timeout):
+                    try:
+                        smi, result, _ = fut.result()
+                    except Exception as e:
+                        task = pending[fut]
+                        smi = task[0]
+                        result = {k: float("nan") for k in feat_names}
+                        logger.warning(f"  {label} error on {smi[:30]}: {e}")
+                    results[smi] = result
+                    n_done += 1
+            except TimeoutError:
+                logger.warning(f"  {label} batch timed out — collecting partial, skipping stuck")
+                for fut, task in pending.items():
+                    smi = task[0]
+                    if smi in results:
+                        continue
+                    if fut.done():
+                        try:
+                            _, result, _ = fut.result()
+                        except Exception:
+                            result = {k: float("nan") for k in feat_names}
+                    else:
+                        result = {k: float("nan") for k in feat_names}
+                        fut.cancel()
+                    results[smi] = result
+                    n_done += 1
+            finally:
+                import os as _os
+                pids = list((pool._processes or {}).keys())
+                pool.shutdown(wait=False, cancel_futures=True)
+                for pid in pids:
+                    try:
+                        _os.kill(pid, 9)
+                    except Exception:
+                        pass
+            if checkpoint_path:
+                _save_ckpt(checkpoint_path, enol_results, ald_results)
+            logger.info(f"  {label}: {len(results)}/{len(todo) + chunk_start} done")
+        return n_done
+
     # ── Enolate batch ────────────────────────────────────────────────────────
     enol_todo = [(smi, idxs) for smi, idxs in enolate_unique.items()
                  if smi not in enol_results]
     if enol_todo:
         logger.info(f"Computing {len(enol_todo)} enolate xTB properties "
                     f"({len(enolate_unique)-len(enol_todo)} cached)...")
-        n_done = 0
-        BATCH = ckpt_interval * n_workers   # submit tasks in chunks
-        for chunk_start in range(0, len(enol_todo), BATCH):
-            chunk = enol_todo[chunk_start: chunk_start + BATCH]
-            with ProcessPoolExecutor(max_workers=n_workers) as pool:
-                futures = {pool.submit(_worker_enolate, t): t for t in chunk}
-                for fut in as_completed(futures):
-                    smi, result, _ = fut.result()
-                    enol_results[smi] = result
-                    n_done += 1
-            if checkpoint_path:
-                _save_ckpt(checkpoint_path, enol_results, ald_results)
-            logger.info(f"  Enolate xTB: {len(enol_results)}/{len(enolate_unique)} done")
+        _run_batch(_worker_enolate, enol_todo, enol_results, ENOLATE_XTB_NAMES, "Enolate xTB")
     logger.info(f"  Enolate xTB complete: {len(enol_results)}/{len(enolate_unique)}")
 
     # ── Aldehyde batch ───────────────────────────────────────────────────────
@@ -379,17 +413,7 @@ def compute_xtb_features_batch(
     if ald_todo:
         logger.info(f"Computing {len(ald_todo)} aldehyde xTB properties "
                     f"({len(aldehyde_unique)-len(ald_todo)} cached)...")
-        BATCH = ckpt_interval * n_workers
-        for chunk_start in range(0, len(ald_todo), BATCH):
-            chunk = ald_todo[chunk_start: chunk_start + BATCH]
-            with ProcessPoolExecutor(max_workers=n_workers) as pool:
-                futures = {pool.submit(_worker_aldehyde, t): t for t in chunk}
-                for fut in as_completed(futures):
-                    smi, result, _ = fut.result()
-                    ald_results[smi] = result
-            if checkpoint_path:
-                _save_ckpt(checkpoint_path, enol_results, ald_results)
-            logger.info(f"  Aldehyde xTB: {len(ald_results)}/{len(aldehyde_unique)} done")
+        _run_batch(_worker_aldehyde, ald_todo, ald_results, ALDEHYDE_XTB_NAMES, "Aldehyde xTB")
     logger.info(f"  Aldehyde xTB complete: {len(ald_results)}/{len(aldehyde_unique)}")
 
     # ── Assemble DataFrame ───────────────────────────────────────────────────

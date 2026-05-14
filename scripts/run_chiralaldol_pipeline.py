@@ -560,6 +560,18 @@ def stage4_train_and_evaluate():
             eval_save("chiralaldol_v3_xgboost", y[te], m_v3.predict(X_full_v3[te]),
                       prob_v3_test, te, split_name)
 
+            # ---- V3b: 5d clean aldehyde xTB only (drops enolate xTB + Fukui) ----
+            # Enolate xTB: 59% NaN (SCF failures on charged Evans enolates) → noise
+            # Keeps only ald HOMO/LUMO/gap/dipole/CHO_charge (13% NaN, 87% success)
+            logger.info("\n--- ChiralAldolV3b-XGB ---")
+            XTB5_COLS = ["ald_HOMO_eV", "ald_LUMO_eV", "ald_gap_eV", "ald_dipole_D", "ald_CHO_charge"]
+            X_xtb5 = pd.read_csv(xtb_path)[XTB5_COLS].values.astype(np.float32)
+            np.nan_to_num(X_xtb5, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+            X_full_v3b = np.hstack([X_steric, X_ald, X_xtb5, X_cond, X_aux])  # 80d
+            m_v3b = train_xgb(X_full_v3b[tr], y[tr], X_full_v3b[va], y[va])
+            eval_save("chiralaldol_v3b_xgboost", y[te], m_v3b.predict(X_full_v3b[te]),
+                      m_v3b.predict_proba(X_full_v3b[te]), te, split_name)
+
     logger.info("\nStage 4 DONE! All models trained and evaluated.")
 
 

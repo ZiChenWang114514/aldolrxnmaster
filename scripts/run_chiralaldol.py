@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# DEPRECATED: Use scripts/run_chiralaldol_pipeline.py instead.
+# This file is the Phase 9 standalone version kept for reference only.
+# The pipeline script includes all stages (enolates → conformers → steric → V1/V2/V3/V3b training).
 """ChiralAldol: Chemistry-informed 3D steric descriptors for Evans aldol prediction.
 
 Novel method pipeline:
