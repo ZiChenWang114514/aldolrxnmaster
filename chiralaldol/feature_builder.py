@@ -193,6 +193,67 @@ def build_chiralaldol_v2_features(project_dir: Path) -> tuple[np.ndarray, list[s
     return X, feature_names
 
 
+def build_chiralaldol_v3_features(project_dir: Path) -> tuple[np.ndarray, list[str]]:
+    """Build the ChiralAldol V3 feature matrix (87d).
+
+    Combines:
+      1. Enolate 3D steric descriptors (24d, M3)
+      2. Aldehyde 3D steric descriptors (10d, M3b)
+      3. GFN2-xTB electronic descriptors (12d, B1) — NEW
+      4. Reaction conditions (35d)
+      5. Auxiliary chirality (6d)
+
+    Returns (X, feature_names) where X is (1822, 87) float32 array.
+    """
+    from .xtb_descriptors import XTB_FEATURE_NAMES
+
+    feat_dir = project_dir / "data" / "processed" / "features"
+    chiralaldol_dir = project_dir / "data" / "processed" / "chiralaldol"
+
+    # 1. Enolate steric (24d)
+    steric_df = pd.read_csv(chiralaldol_dir / "steric_features.csv")
+
+    # 2. Aldehyde steric (10d)
+    ald_path = chiralaldol_dir / "aldehyde_steric_features.csv"
+    if not ald_path.exists():
+        raise FileNotFoundError(f"Run stage3b first: {ald_path}")
+    ald_df = pd.read_csv(ald_path)
+
+    # 3. xTB electronic (12d)
+    xtb_path = chiralaldol_dir / "xtb_electronic_features.csv"
+    if not xtb_path.exists():
+        raise FileNotFoundError(f"Run stage3c first: {xtb_path}")
+    xtb_df = pd.read_csv(xtb_path)
+
+    # 4. Conditions (35d)
+    cond_df = pd.read_csv(feat_dir / "reaction_conditions.csv")
+
+    # 5. Auxiliary chirality (6d)
+    aux_df = pd.read_csv(feat_dir / "auxchiral_features.csv")
+
+    n = len(steric_df)
+    assert all(len(df) == n for df in [ald_df, xtb_df, cond_df, aux_df])
+
+    X_steric = steric_df.values.astype(np.float32)
+    X_ald = ald_df.values.astype(np.float32)
+    X_xtb = xtb_df.values.astype(np.float32)
+    X_cond = cond_df.values.astype(np.float32)
+    X_aux = aux_df.values.astype(np.float32)
+
+    X = np.hstack([X_steric, X_ald, X_xtb, X_cond, X_aux])
+    feature_names = (list(steric_df.columns) + list(ald_df.columns)
+                     + XTB_FEATURE_NAMES + list(cond_df.columns) + list(aux_df.columns))
+
+    np.nan_to_num(X, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+
+    logger.info(
+        f"ChiralAldol V3 features: {X.shape} "
+        f"(enolate_steric={X_steric.shape[1]}, ald_steric={X_ald.shape[1]}, "
+        f"xtb={X_xtb.shape[1]}, cond={X_cond.shape[1]}, aux={X_aux.shape[1]})"
+    )
+    return X, feature_names
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
     project = Path("/data2/zcwang/aldolrxnmaster")

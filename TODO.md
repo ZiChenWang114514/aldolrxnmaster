@@ -108,11 +108,14 @@ Current best (ChiralAldol-Stack 0.725) is far from 0.90+ accuracy needed for pra
 
 ### Phase B — xTB 电子描述符（中等工作量）
 
-- [ ] **B1: GFN2-xTB 电子描述符**
-  - 计算烯醇盐和醛的 HOMO-LUMO gap、Fukui f⁻/f⁺、偶极矩
-  - 提取 Cα 的 f⁻ 指数（亲核位点）和醛羰基碳的 f⁺ 指数（亲电位点）
-  - 工具: xtb CLI + Python subprocess，或 tblite Python binding
-  - 预期收益: +2-4%（电子效应对 C1 anti 类可能最有帮助）
+- [~] **B1: GFN2-xTB 电子描述符** — 计算中（2026-05-13）
+  - `chiralaldol/xtb_descriptors.py` — 新建模块
+  - tblite-python 0.5.0 (conda-forge) 安装至 aldol-rxn 环境
+  - 特征 12d: HOMO/LUMO/gap/dipole/charge/Fukui(f⁻Cα, f⁺CHO-C) × 2 reactants
+  - Fukui 用 N±1 电子有限差分: f⁻(Cα)=q(N-1)-q(N), f⁺(CHO-C)=q(N)-q(N+1)
+  - `stage3c_xtb_features()` → `xtb_electronic_features.csv` (1822×12)
+  - 新模型: ChiralAldolV3-XGB (87d = 24+10+12+35+6)
+  - 状态: xTB 计算运行中 (~322 unique enolates + 667 unique aldehydes)
 
 ### Phase C — qTS 过渡态建模（最高天花板，最大工程量）
 

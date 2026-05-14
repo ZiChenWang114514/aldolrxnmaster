@@ -259,6 +259,63 @@ def stage3b_aldehyde_features():
 
 
 # ============================================================
+#  Stage 3c: GFN2-xTB electronic descriptor computation
+# ============================================================
+
+def stage3c_xtb_features():
+    """Compute GFN2-xTB electronic descriptors for enolate and aldehyde.
+
+    Runs GFN2-xTB single-point calculations (+ N±1 electron for Fukui) on each
+    unique enolate/aldehyde SMILES, then joins back to the full 1822-row DataFrame.
+
+    Output: data/processed/chiralaldol/xtb_electronic_features.csv (1822 × 12)
+    Features: HOMO/LUMO/gap/dipole/charge/Fukui for each reactant pair.
+    """
+    from chiralaldol.xtb_descriptors import XTB_FEATURE_NAMES, compute_xtb_features_batch
+    from chiralaldol.aldehyde_steric import strip_atom_map
+
+    out_path = CHIRALALDOL_DIR / "xtb_electronic_features.csv"
+    if out_path.exists():
+        df = pd.read_csv(out_path)
+        logger.info(f"Stage 3c SKIP: xtb_electronic_features.csv exists ({df.shape})")
+        return df
+
+    ckpt_path = CHIRALALDOL_DIR / "xtb_electronic_ckpt.pkl"
+
+    # Load enolate SMILES (already clean: formal charge -1 on O)
+    enolates = pd.read_csv(CHIRALALDOL_DIR / "enolates.csv")
+    enolate_smiles = enolates["enolate_smiles"].fillna("")
+
+    # Load aldehyde SMILES and strip atom maps
+    evans = pd.read_csv(PROJECT / "data" / "processed" / "evans_clean.csv")
+    aldehyde_smiles = evans["Aldehyde"].fillna("").apply(
+        lambda s: strip_atom_map(s) if s else ""
+    )
+
+    logger.info(f"Stage 3c: {enolate_smiles.nunique()} unique enolates, "
+                f"{aldehyde_smiles.nunique()} unique aldehydes")
+
+    df = compute_xtb_features_batch(
+        enolate_smiles,
+        aldehyde_smiles,
+        n_workers=8,
+        checkpoint_path=ckpt_path,
+    )
+
+    # Reindex to 0..1821 for CSV storage
+    df_out = df.reset_index(drop=True)
+    df_out.to_csv(out_path, index=False)
+
+    # Clean up checkpoint
+    if ckpt_path.exists():
+        ckpt_path.unlink()
+
+    n_ok = df["enol_HOMO_eV"].notna().sum()
+    logger.info(f"Stage 3c DONE: {n_ok}/{len(df)} valid | saved {out_path}")
+    return df_out
+
+
+# ============================================================
 #  Stage 4: Feature integration + model training
 # ============================================================
 
@@ -350,8 +407,19 @@ def stage4_train_and_evaluate():
         np.nan_to_num(X_ald, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
         logger.info(f"Loaded aldehyde steric features: {X_ald.shape}")
     else:
-        logger.warning("aldehyde_steric_features.csv not found — V2 models will be skipped")
+        logger.warning("aldehyde_steric_features.csv not found — V2/V3 models will be skipped")
         X_ald = None
+
+    # Load xTB electronic features (Stage 3c output)
+    xtb_path = CHIRALALDOL_DIR / "xtb_electronic_features.csv"
+    if xtb_path.exists():
+        xtb_df = pd.read_csv(xtb_path)
+        X_xtb = xtb_df.values.astype(np.float32)
+        np.nan_to_num(X_xtb, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+        logger.info(f"Loaded xTB electronic features: {X_xtb.shape}")
+    else:
+        logger.info("xtb_electronic_features.csv not found — V3 model will be skipped")
+        X_xtb = None
 
     # Run on all splits
     splits = ["evans_temporal", "evans_scaffold", "evans_grouped_random_seed42"]
@@ -480,6 +548,18 @@ def stage4_train_and_evaluate():
             prob_stack_v2 = meta_v2.predict_proba(prob_v2_meta_test)
             eval_save("chiralaldol_v2_stacking", y[te], y_stack_v2, prob_stack_v2, te, split_name)
 
+        # ---- V3 Models: enolate_steric(24) + ald_steric(10) + xtb_electronic(12)
+        #                 + cond(35) + aux(6) = 87d ----
+        if X_ald is not None and X_xtb is not None:
+            logger.info("\n--- ChiralAldolV3-XGB ---")
+            X_full_v3 = np.hstack([X_steric, X_ald, X_xtb, X_cond, X_aux])  # 87d
+            np.nan_to_num(X_full_v3, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+
+            m_v3 = train_xgb(X_full_v3[tr], y[tr], X_full_v3[va], y[va])
+            prob_v3_test = m_v3.predict_proba(X_full_v3[te])
+            eval_save("chiralaldol_v3_xgboost", y[te], m_v3.predict(X_full_v3[te]),
+                      prob_v3_test, te, split_name)
+
     logger.info("\nStage 4 DONE! All models trained and evaluated.")
 
 
@@ -510,8 +590,12 @@ if __name__ == "__main__":
     logger.info("\n[Stage 3b] Aldehyde steric descriptor computation")
     stage3b_aldehyde_features()
 
+    # Stage 3c
+    logger.info("\n[Stage 3c] GFN2-xTB electronic descriptor computation")
+    stage3c_xtb_features()
+
     # Stage 4
-    logger.info("\n[Stage 4] Model training & evaluation (including V2 models)")
+    logger.info("\n[Stage 4] Model training & evaluation (including V2/V3 models)")
     stage4_train_and_evaluate()
 
     logger.info(f"\nTotal pipeline time: {time.time()-t_start:.0f}s")

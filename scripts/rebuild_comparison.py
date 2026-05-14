@@ -72,10 +72,13 @@ NAME_MAP = {
     # Phase 11-A1: aldehyde steric descriptors added (75d = 24+10+35+6)
     "chiralaldol_v2_xgboost": "ChiralAldolV2-XGB",
     "chiralaldol_v2_stacking": "ChiralAldolV2-Stack",
+    # Phase 11-B1: GFN2-xTB electronic descriptors added (87d = 24+10+12+35+6)
+    "chiralaldol_v3_xgboost": "ChiralAldolV3-XGB",
 }
 
 # Display order
 MODEL_ORDER = [
+    "ChiralAldolV3-XGB",
     "ChiralAldolV2-Stack", "ChiralAldolV2-XGB",
     "ChiralAldol-Stack", "ChiralAldol-WtVote", "ChiralAldol+DRFP-XGB", "ChiralAldol-XGB", "SterOnly-XGB", "CondAux-XGB",
     "DRFP+Cond+XGBoost", "DRFP+Aux+Cond-XGB",
