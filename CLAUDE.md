@@ -4,7 +4,7 @@ Evans 不对称 aldol 反应 4-class 立体化学预测 — 35 模型 benchmark 
 
 ## 当前状态 (2026-05-14)
 
-- **39 模型 × 3 splits = 117 prediction CSVs**
+- **40 模型 × 3 splits = 120 prediction CSVs**
 - **冠军**: ChiralAldolV2-XGB (enolate+aldehyde 3D steric + cond + aux, 75d), temporal bal_acc=**0.783**
 - **前冠军**: ChiralAldol-Stack (0.725), 被 V2-XGB 超越 +5.8%
 - **数据**: 1822 Evans 反应, 4-class joint Ca×Cb label
@@ -13,9 +13,17 @@ Evans 不对称 aldol 反应 4-class 立体化学预测 — 35 模型 benchmark 
 - **Phase 11-B1 完成 (负面结果)**: GFN2-xTB 电子描述符无增益
   - V3-XGB (87d, 全量 xTB): temporal **0.696** (退步 -8.7%)
   - V3b-XGB (80d, 5d clean ald xTB): temporal **0.721** (仍不如 V2)
-  - 根因: 烯醇盐 xTB 59% 计算失败 (大分子+带电荷)；Evans aldol 是立体控制反应，HOMO/LUMO 与面选择性无关
-  - **结论**: V2 (75d, 纯立体+条件) 是当前最优方案
-- **下一步**: Phase C1 — qTS 准过渡态建模 (+5-10% 预期增益)
+  - 根因: 烯醇盐 xTB 59% 计算失败；Evans aldol 是立体控制反应，HOMO/LUMO 无关
+- **Phase C1 完成 (负面结果)**: qTS 准过渡态 VDW steric 特征无增益
+  - V4-XGB (79d = 75d V2 + 4d qTS VDW): temporal **0.628** (退步 -15.5%)
+  - 根因: 近似 ZT 坐标构建中 si/re 面分配不一致 (不同醛基 C=O 方向不同)；
+    VDW clash 特征与 label 相关性 r ≈ −0.03 (接近零)
+  - GFN2/GFN1-xTB 真实 TS 优化速度 50-120s/分子，1822×4 = ~60h，不可行
+  - **结论**: V2 (75d) 仍是最优方案；qTS 需要更严格的 ZT 环坐标 + 正确的 si/re 几何
+- **下一步候选**:
+  1. **更好的 qTS**: 正确 ZT 6-元环坐标 (chair/twist-boat 显式环几何)，确保 si/re = 等轴/直轴 R 基
+  2. **交叉项特征**: (Vbur_si - Vbur_re) × ald_B5 = 面选择性与醛基体积的直积
+  3. **基于产物构建 TS**: 从产物逆向设计 TS 几何，更准确但更复杂
 
 ## 环境
 

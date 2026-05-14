@@ -76,11 +76,13 @@ NAME_MAP = {
     "chiralaldol_v3_xgboost": "ChiralAldolV3-XGB",
     # Phase 11-B1b: 5d clean aldehyde xTB only (80d = 24+10+5+35+6, enolate xTB dropped)
     "chiralaldol_v3b_xgboost": "ChiralAldolV3b-XGB",
+    # Phase C1: qTS quasi-transition-state (79d = 75d V2 + 4d qTS)
+    "chiralaldol_v4_xgboost": "ChiralAldolV4-XGB",
 }
 
 # Display order
 MODEL_ORDER = [
-    "ChiralAldolV3b-XGB", "ChiralAldolV3-XGB",
+    "ChiralAldolV4-XGB", "ChiralAldolV3b-XGB", "ChiralAldolV3-XGB",
     "ChiralAldolV2-Stack", "ChiralAldolV2-XGB",
     "ChiralAldol-Stack", "ChiralAldol-WtVote", "ChiralAldol+DRFP-XGB", "ChiralAldol-XGB", "SterOnly-XGB", "CondAux-XGB",
     "DRFP+Cond+XGBoost", "DRFP+Aux+Cond-XGB",
