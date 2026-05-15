@@ -78,10 +78,17 @@ NAME_MAP = {
     "chiralaldol_v3b_xgboost": "ChiralAldolV3b-XGB",
     # Phase C1: qTS quasi-transition-state (79d = 75d V2 + 4d qTS)
     "chiralaldol_v4_xgboost": "ChiralAldolV4-XGB",
+    # Phase V5: cross-term interaction features (87d = 75d V2 + 12d cross/Z-E/derived)
+    "chiralaldol_v5_xgboost": "ChiralAldolV5-XGB",
+    "chiralaldol_v5_lgbm": "ChiralAldolV5-LGBM",
+    "chiralaldol_v5_et": "ChiralAldolV5-ET",
+    "chiralaldol_v5_stacking": "ChiralAldolV5-Stack",
+    "chiralaldol_v5s_xgboost": "ChiralAldolV5s-XGB",
 }
 
 # Display order
 MODEL_ORDER = [
+    "ChiralAldolV5-Stack", "ChiralAldolV5-XGB", "ChiralAldolV5-LGBM", "ChiralAldolV5-ET", "ChiralAldolV5s-XGB",
     "ChiralAldolV4-XGB", "ChiralAldolV3b-XGB", "ChiralAldolV3-XGB",
     "ChiralAldolV2-Stack", "ChiralAldolV2-XGB",
     "ChiralAldol-Stack", "ChiralAldol-WtVote", "ChiralAldol+DRFP-XGB", "ChiralAldol-XGB", "SterOnly-XGB", "CondAux-XGB",

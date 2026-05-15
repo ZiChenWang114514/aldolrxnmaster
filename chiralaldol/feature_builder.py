@@ -322,6 +322,89 @@ def build_chiralaldol_v3b_features(project_dir: Path) -> tuple[np.ndarray, list[
     return X, feature_names
 
 
+V5_CROSS_TERM_NAMES = [
+    "x_sin_tau1_ald_Vbur_total",
+    "x_sin_tau1_ald_B5",
+    "x_Vbur_diff_ald_L",
+    "x_Vbur_diff_ald_B5",
+    "x_sin_tau1_ze_z",
+    "x_Vbur_diff_ze_z",
+    "vbur_norm_diff",
+    "vbur_si_re_ratio",
+    "sin_tau1_sq",
+    "ze_z_dominant",
+    "ze_mixed",
+    "ze_unknown",
+]
+
+
+def build_chiralaldol_v5_features(project_dir: Path) -> tuple[np.ndarray, list[str]]:
+    """Build the ChiralAldol V5 feature matrix (87d).
+
+    V2 75d + 12d cross-term interaction features:
+      - 6 enolate×aldehyde cross-terms (physically motivated steric interactions)
+      - 3 derived steric ratios
+      - 3 Z/E selectivity encoding (from enolates.csv, previously unused)
+
+    The cross-terms capture the INTERACTION between enolate face selectivity
+    and aldehyde bulk, which is the physical basis of Evans aldol stereoselectivity.
+    Pearson r with 4-class label: 0.25–0.34 (vs r≈0 for failed V3/V4 features).
+
+    Returns (X, feature_names) where X is (1822, 87) float32 array.
+    """
+    # 1. Base V2 features (75d)
+    X_v2, names_v2 = build_chiralaldol_v2_features(project_dir)
+
+    chiralaldol_dir = project_dir / "data" / "processed" / "chiralaldol"
+
+    # 2. Load raw columns for cross-terms
+    steric_df = pd.read_csv(chiralaldol_dir / "steric_features.csv")
+    ald_df = pd.read_csv(chiralaldol_dir / "aldehyde_steric_features.csv")
+    enolates_df = pd.read_csv(chiralaldol_dir / "enolates.csv")
+
+    sin_tau1 = steric_df["sin_tau1_mean"].values.astype(np.float32)
+    vbur_diff = steric_df["Vbur_diff_mean"].values.astype(np.float32)
+    vbur_si = steric_df["Vbur_si_mean"].values.astype(np.float32)
+    vbur_re = steric_df["Vbur_re_mean"].values.astype(np.float32)
+    vbur_total = steric_df["Vbur_total_mean"].values.astype(np.float32)
+    ald_vbur = ald_df["ald_Vbur_total_mean"].values.astype(np.float32)
+    ald_b5 = ald_df["ald_B5_mean"].values.astype(np.float32)
+    ald_l = ald_df["ald_L_mean"].values.astype(np.float32)
+    ze = enolates_df["ze_selectivity"].values
+
+    # 3. Z/E encoding
+    ze_z = (ze == "Z_dominant").astype(np.float32)
+    ze_m = (ze == "mixed").astype(np.float32)
+    ze_u = (ze == "unknown").astype(np.float32)
+
+    # 4. Cross-terms and derived features
+    X_cross = np.column_stack([
+        sin_tau1 * ald_vbur,                                        # x_sin_tau1_ald_Vbur_total
+        sin_tau1 * ald_b5,                                          # x_sin_tau1_ald_B5
+        vbur_diff * ald_l,                                          # x_Vbur_diff_ald_L
+        vbur_diff * ald_b5,                                         # x_Vbur_diff_ald_B5
+        sin_tau1 * ze_z,                                            # x_sin_tau1_ze_z
+        vbur_diff * ze_z,                                           # x_Vbur_diff_ze_z
+        np.where(np.abs(vbur_total) > 1e-8, vbur_diff / vbur_total, 0.0),  # vbur_norm_diff
+        np.where(np.abs(vbur_re) > 1e-8, vbur_si / vbur_re, 1.0),          # vbur_si_re_ratio
+        sin_tau1 ** 2,                                              # sin_tau1_sq
+        ze_z,                                                       # ze_z_dominant
+        ze_m,                                                       # ze_mixed
+        ze_u,                                                       # ze_unknown
+    ]).astype(np.float32)
+
+    X = np.hstack([X_v2, X_cross])
+    feature_names = names_v2 + V5_CROSS_TERM_NAMES
+
+    np.nan_to_num(X, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
+
+    logger.info(
+        f"ChiralAldol V5 features: {X.shape} "
+        f"(V2={X_v2.shape[1]}, cross_terms={X_cross.shape[1]})"
+    )
+    return X, feature_names
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
     project = Path("/data2/zcwang/aldolrxnmaster")
