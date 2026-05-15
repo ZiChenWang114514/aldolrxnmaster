@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026-05-14: Phase V5 — 交叉项+多模型集成 (负面结果)
+
+### Added
+- `chiralaldol/feature_builder.py`: `build_chiralaldol_v5_features()` (87d = V2 75d + 12d cross/Z-E/derived)
+- `scripts/run_v5_pipeline.py`: XGB/LGBM/ET + 4-model OOF stacking + auto feature-selection
+- 6 交叉项: sin_tau1×ald_Vbur/B5, Vbur_diff×ald_L/B5/ze_z, sin_tau1×ze_z
+- 3 衍生: vbur_norm_diff, vbur_si_re_ratio, sin_tau1_sq
+- 3 Z/E encoding: ze_z_dominant, ze_mixed, ze_unknown
+
+### Result: NEGATIVE
+- V5-XGB temporal **0.758** (不如 V2 0.783)
+- V5-Stack temporal **0.694** (最差); V5-Stack scaffold **0.864** (最优)
+- 交叉项 r=0.33 on train, 不迁移到 temporal test (2019+)
+- **结论: 0.783 是表格方法天花板。V2 (75d) 的 XGBoost depth-6 已隐式学到交互**
+
+## 2026-05-14: Phase C1 — qTS 准过渡态 (负面结果)
+
+### Added
+- `chiralaldol/qts_builder.py`: Zimmerman-Traxler 6-元环脚手架 + VDW Gaussian steric 特征 (4d)
+- `scripts/run_qts_pipeline.py`: 全管线 (醛基提取 → qTS 计算 → V4 训练)
+- 4 通道: si/re × chair/twist-boat, 1822 反应约 3 分钟完成
+
+### Result: NEGATIVE
+- V4-XGB temporal **0.628** (退步 -15.5% vs V2 0.783)
+- 根因: 近似 ZT 坐标不同醛基的 C=O 方向不同 → si/re 面不一致 (r≈-0.03)
+- GFN1/GFN2-xTB 太慢: 50-120s/molecule × 7288 = 60+ h
+
+## 2026-05-14: Phase 11-B1 — xTB 电子描述符 (负面结果)
+
+### Added
+- `chiralaldol/xtb_descriptors.py`: GFN2-xTB HOMO/LUMO/gap/dipole/Mulliken/Fukui 12d
+- V3-XGB (87d = 24+10+12+35+6), V3b-XGB (80d = 24+10+5+35+6)
+
+### Result: NEGATIVE
+- V3-XGB temporal **0.696** (退步 -8.7%); V3b-XGB temporal **0.721** (退步 -6.2%)
+- 根因: 烯醇盐 xTB 59% 计算失败 (大分子+带电荷); Evans aldol 是立体控制非电子控制
+
+### Changed
+- `scripts/rebuild_comparison.py`: 注册 V3/V3b/V4/V5 共 8 个新模型
+- `chiralaldol/feature_builder.py`: 新增 build_chiralaldol_v3/v3b/v5_features()
+- Benchmark: 37 → 45 models, 111 → 135 prediction CSVs
+
 ## 2026-05-13: Phase 11-A1 — 醛基 3D 立体特征 + ChiralAldolV2 模型
 
 ### Added

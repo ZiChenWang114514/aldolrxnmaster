@@ -614,10 +614,16 @@ def run_split(split_name):
     yp = np.full(len(data["y_test"]), mc)
     pp = np.zeros((len(data["y_test"]), 4)); pp[:, mc] = 1.0
     results.append(evaluate_model("MajorityClass", data["y_test"], yp, pp))
+    save_preds("majorityclass", split_name, data["labels_df"], data["test_idx"], yp, pp)
 
     logger.info("\n--- Random ---")
-    yp = np.random.RandomState(42).randint(0, 4, len(data["y_test"]))
-    results.append(evaluate_model("Random", data["y_test"], yp))
+    rng = np.random.RandomState(42)
+    yp = rng.randint(0, 4, len(data["y_test"]))
+    pp = np.zeros((len(data["y_test"]), 4))
+    for i in range(len(yp)):
+        pp[i] = rng.dirichlet([1, 1, 1, 1])
+    results.append(evaluate_model("Random", data["y_test"], yp, pp))
+    save_preds("random", split_name, data["labels_df"], data["test_idx"], yp, pp)
 
     # --- Results Table ---
     rows = []

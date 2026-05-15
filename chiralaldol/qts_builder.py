@@ -39,7 +39,6 @@ Output features (4d per reaction):
 
 References:
     Zimmerman, H.E.; Traxler, M.D. JACS 1957, 79, 1920.
-    Grimme, S. et al. J. Chem. Theory Comput. 2019, 15, 1652. (GFN2-xTB)
 """
 
 import logging

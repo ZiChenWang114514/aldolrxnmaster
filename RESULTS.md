@@ -1,6 +1,6 @@
 # Benchmark Results
 
-37 models evaluated on Evans asymmetric aldol reaction stereochemistry prediction (1822 reactions, 4-class joint Ca×Cb label).
+45 models evaluated on Evans asymmetric aldol reaction stereochemistry prediction (1822 reactions, 4-class joint Ca×Cb label).
 
 ## Evans Temporal Split (Primary Evaluation, Hardest)
 

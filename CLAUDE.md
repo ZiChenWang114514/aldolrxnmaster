@@ -4,7 +4,7 @@ Evans 不对称 aldol 反应 4-class 立体化学预测 — 35 模型 benchmark 
 
 ## 当前状态 (2026-05-14)
 
-- **40 模型 × 3 splits = 120 prediction CSVs**
+- **47 模型 × 3 splits = 141 prediction CSVs**
 - **冠军**: ChiralAldolV2-XGB (enolate+aldehyde 3D steric + cond + aux, 75d), temporal bal_acc=**0.783**
 - **前冠军**: ChiralAldol-Stack (0.725), 被 V2-XGB 超越 +5.8%
 - **数据**: 1822 Evans 反应, 4-class joint Ca×Cb label

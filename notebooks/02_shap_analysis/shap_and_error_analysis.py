@@ -24,7 +24,7 @@ from sklearn.utils.class_weight import compute_sample_weight
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-logging.basicConfig(level=logging.INFO, format="%(H:%M:%S)s %(levelname)s: %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger(__name__)
 
 PROJECT = Path("/data2/zcwang/aldolrxnmaster")
@@ -39,15 +39,12 @@ def load_data():
     """Load all features and labels."""
     from sklearn.decomposition import TruncatedSVD
 
-    steric_df = pd.read_csv(CHIRALALDOL_DIR / "steric_features.csv")
-    cond_df = pd.read_csv(FEAT_DIR / "reaction_conditions.csv")
-    aux_df = pd.read_csv(FEAT_DIR / "auxchiral_features.csv")
+    from chiralaldol.feature_builder import build_chiralaldol_v2_features
     labels = pd.read_csv(FEAT_DIR / "labels.csv")
     y = labels["label_joint"].values.astype(int)
 
-    # ChiralAldol features (65d)
-    X_full = np.hstack([steric_df.values, cond_df.values, aux_df.values]).astype(np.float32)
-    feature_names = list(steric_df.columns) + list(cond_df.columns) + list(aux_df.columns)
+    # ChiralAldolV2 features (75d = enolate_steric 24d + ald_steric 10d + cond 35d + aux 6d)
+    X_full, feature_names = build_chiralaldol_v2_features(PROJECT)
     np.nan_to_num(X_full, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
 
     # Temporal split

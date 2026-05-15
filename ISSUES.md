@@ -117,12 +117,14 @@
 
 ## 发表前需解决
 
-1. ~~T1: Fusion model~~ → DONE (Stacking 0.725, new champion)
-2. ~~T2: SHAP~~ → DONE (sin_tau1 #1, Vbur_diff #4)
+1. ~~T1: Fusion model~~ → DONE (Stacking 0.725, V2-XGB 0.783 new champion)
+2. ~~T2: SHAP~~ → DONE on V1; **需更新为 V2 (75d)**
 3. ~~T3: Error analysis~~ → DONE (20 unique correct, 11 hard cases)
-4. **A1**: 醛基 Sterimol/%Vbur 特征（Phase 11 首要任务）
-5. **A2/A3**: 确认对映体增强可行性 + dr值是否可用
-6. **T4**: 论文级图表 (confusion matrices, violin plots, radar charts)
-7. **T5**: Manuscript figures and SI tables
-8. 保存 top-3 模型 checkpoints (可复现性)
-9. MajorityClass/Random baselines 补全 CSV
+4. ~~A1: 醛基 Sterimol~~ → DONE (V2 +11.9%)
+5. ~~A2: 对映体增强~~ → DONE (负面, 放弃)
+6. ~~B1/C1/V5~~ → DONE (全部负面, 确认表格天花板 0.783)
+7. ~~P1: MajorityClass/Random~~ → RESOLVED (CSV 已生成)
+8. ~~P3: Phantom NAME_MAP~~ → RESOLVED (t5chem_clf/gcpnet 已移除)
+9. **T4**: 论文级图表 (confusion matrices, violin plots, radar charts)
+10. **T5**: Manuscript figures and SI tables
+11. 保存 top-3 模型 checkpoints (可复现性)

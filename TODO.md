@@ -1,13 +1,13 @@
 # AldolRxnMaster — Publication Roadmap (JACS Target)
 
-## Project Status (2026-05-13)
+## Project Status (2026-05-14)
 
 - **Data**: 4751 → 4447 (deduplicated) → 1822 Evans clean, 7-step pipeline
-- **Features**: Morgan FP, DRFP, RXNFP, RDKit desc, cond(35d), aux(6d), **enolate 3D steric(24d)**, **aldehyde 3D steric(10d, Phase 11-A1)**
-- **Models**: 37 unique × 3 splits = 111 prediction CSVs
-- **NEW Champion**: ChiralAldolV2-XGB (75d), temporal bal_acc=**0.783** (+11.9% over V1-XGB)
-- **Previous Champion**: ChiralAldol-Stack (0.725) → surpassed by V2-XGB (+5.8%)
-- **Gap to practical utility**: 0.783 → 0.90+ needed for real synthetic planning
+- **Features**: Morgan FP, DRFP, RXNFP, RDKit desc, cond(35d), aux(6d), **enolate 3D steric(24d)**, **aldehyde 3D steric(10d)**
+- **Models**: 45 unique × 3 splits = 135 prediction CSVs
+- **Champion**: ChiralAldolV2-XGB (75d), temporal bal_acc=**0.783** (+11.9% over V1-XGB)
+- **表格天花板确认**: B1 xTB(0.696), C1 qTS(0.628), V5 cross(0.758) 全部不如 V2 — 0.783 是表格方法极限
+- **下一步**: 发表论文 (ACS Catalysis / JCIM target)
 
 ---
 
@@ -106,27 +106,28 @@ Current best (ChiralAldol-Stack 0.725) is far from 0.90+ accuracy needed for pra
   - 尝试 Focal Loss / SMOTE / class-weighted XGBoost 调整
   - 重点: V2-XGB 的 C1 仍只有 60%（temporal）
 
-### Phase B — xTB 电子描述符（中等工作量）
+### Phase B — xTB 电子描述符 ✗ 完成 (负面结果)
 
-- [~] **B1: GFN2-xTB 电子描述符** — 计算中（2026-05-13）
-  - `chiralaldol/xtb_descriptors.py` — 新建模块
-  - tblite-python 0.5.0 (conda-forge) 安装至 aldol-rxn 环境
-  - 特征 12d: HOMO/LUMO/gap/dipole/charge/Fukui(f⁻Cα, f⁺CHO-C) × 2 reactants
-  - Fukui 用 N±1 电子有限差分: f⁻(Cα)=q(N-1)-q(N), f⁺(CHO-C)=q(N)-q(N+1)
-  - `stage3c_xtb_features()` → `xtb_electronic_features.csv` (1822×12)
-  - 新模型: ChiralAldolV3-XGB (87d = 24+10+12+35+6)
-  - 状态: xTB 计算运行中 (~322 unique enolates + 667 unique aldehydes)
+- [x] **B1: GFN2-xTB 电子描述符** — ✗ 负面 (2026-05-14)
+  - `chiralaldol/xtb_descriptors.py` (tblite-python 0.5.0)
+  - V3-XGB (87d, 全量 xTB): temporal **0.696** (退步 -8.7%)
+  - V3b-XGB (80d, 5d clean ald xTB): temporal **0.721** (仍不如 V2)
+  - 根因: 烯醇盐 xTB 59% 计算失败 (大分子+带电荷)；Evans aldol 是立体控制反应
 
-### Phase C — qTS 过渡态建模（最高天花板，最大工程量）
+### Phase C — qTS 过渡态建模 ✗ 完成 (负面结果)
 
-- [ ] **C1: 准过渡态 (qTS) 建模**
-  - 构建 Zimmerman-Traxler 六元环椅式骨架模板
-  - 固定新生 C-C 键距离 ~2.1 Å + 金属-O 配位约束
-  - GFN2-xTB 约束优化 4 条竞争通道（si/re × chair/twist）
-  - 提取 ΔE_qTS（相对准活化能）作为关键特征
-  - 规模: 1822 反应 × 4 通道 = ~7300 次 xTB 计算
-  - 预期收益: +5-10%（直接提供物理决定量，替代 sin_tau1 的间接代理）
-  - 参考: Cell Reports Phys. Sci. 2024, DOI: 10.1016/j.xcrp.2024.102043
+- [x] **C1: qTS VDW steric** — ✗ 负面 (2026-05-14)
+  - `chiralaldol/qts_builder.py` + `scripts/run_qts_pipeline.py`
+  - V4-XGB (79d = 75d V2 + 4d qTS): temporal **0.628** (退步 -15.5%)
+  - 根因: 近似 ZT 坐标 si/re 面不一致 (r≈-0.03); GFN1/2-xTB 太慢 (50-120s/mol)
+
+### Phase V5 — 交叉项特征 ✗ 完成 (负面结果)
+
+- [x] **V5: 交叉项 + Z/E + 多模型** — ✗ 负面 (2026-05-14)
+  - `chiralaldol/feature_builder.py:build_chiralaldol_v5_features()` + `scripts/run_v5_pipeline.py`
+  - V5-XGB (87d): temporal **0.758**; V5-LGBM: 0.749; V5-Stack: 0.694
+  - 根因: 交叉项在训练集 r=0.33 但不迁移到 temporal test set (2019+)
+  - **结论: 0.783 是表格方法天花板**
 
 ---
 

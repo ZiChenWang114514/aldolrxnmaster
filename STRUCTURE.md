@@ -3,7 +3,7 @@
 ```
 aldolrxnmaster/
 ├── CLAUDE.md                          # Claude Code 项目指引
-├── RESULTS.md                         # 23 模型 benchmark 结果
+├── RESULTS.md                         # 45+ 模型 benchmark 结果
 ├── STRUCTURE.md                       # 本文件
 ├── TODO.md                            # 待做事项
 ├── ISSUES.md                          # 已知问题与缺陷
@@ -80,8 +80,18 @@ aldolrxnmaster/
 │   ├── rerun_failed_models.py          # 重跑失败模型 (DistilBERT/RoBERTa/MolT5)
 │   └── run_t5chem_classification.py    # T5Chem 分类 (API 不兼容, 未成功)
 │
+├── chiralaldol/                           # ChiralAldol 核心模块
+│   ├── enolate_generator.py               # M1: 酮 → Z/E 烯醇盐
+│   ├── conformer_sampler.py               # M2: 构象系综采样 (100 conf → RMSD 聚类)
+│   ├── steric_descriptors.py              # M3: 烯醇盐 3D 立体 (%Vbur, Sterimol, 二面角, 24d)
+│   ├── aldehyde_steric.py                 # M3b: 醛基 3D 立体 (Sterimol, Vbur, 10d)
+│   ├── xtb_descriptors.py                 # B1: GFN2-xTB 电子 12d (负面结果)
+│   ├── qts_builder.py                     # C1: qTS VDW 立体 4d (负面结果)
+│   ├── feature_builder.py                 # M4: 特征集成 (V1/V2/V3/V3b/V5)
+│   └── utils.py                           # 工具函数
+│
 ├── results/
-│   ├── predictions/                    # 69 个 prediction CSV (23 models × 3 splits)
+│   ├── predictions/                    # 141 个 prediction CSV (47 models × 3 splits)
 │   ├── tables/
 │   │   ├── comparison_evans_temporal.csv
 │   │   ├── comparison_evans_scaffold.csv
@@ -119,11 +129,15 @@ aldolrxnmaster/
 
 | Type | Models | Count |
 |------|--------|-------|
-| Fingerprint + GBDT | XGBoost, LightGBM, XGBoost-FullFP, DRFP+XGB, DRFP+LGB, DRFP+Cond+XGB | 6 |
-| Fingerprint + Other | RF, 1-NN, 5-NN, Morgan-MLP, RXNFP+XGB, RXNFP+LGB, RXNFP+MLP | 7 |
+| **ChiralAldol** | V1-XGB, V2-XGB, V2-Stack, V3/V3b/V4/V5-XGB, V5-LGBM/ET/Stack/V5s, SterOnly, CondAux, WtVote, Stack, +DRFP | 17 |
+| AuxChiral | XGB, +Ald-XGB, LGBM, NoAux, NoBase | 5 |
+| DRFP fusion | +XGB, +LGB, +Cond+XGB, +Aux+Cond | 4 |
+| FP + GBDT | XGBoost, LightGBM, RF, XGBoost-FullFP | 4 |
+| FP + Other | 1-NN, 5-NN, Morgan-MLP, RXNFP+XGB/LGB/MLP | 6 |
 | Transformer | DistilBERT-Rxn, RoBERTa-Rxn, ChemBERTa-77M, MolT5-base | 4 |
 | Reaction MPNN | Chemprop, Chemprop+Cond | 2 |
 | Meta-learning | ProtoNet | 1 |
 | Chemistry-informed DL | ChemAHNet-Aldol | 1 |
 | 3D Models | ChiENN-Product, EquiReact | 2 |
-| **Total** | | **23** |
+| Baselines | MajorityClass, Random | 2 |
+| **Total (unique predictions)** | | **47** |
