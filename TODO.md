@@ -1,13 +1,15 @@
-# AldolRxnMaster — Publication Roadmap (JACS Target)
+# AldolRxnMaster — Publication Roadmap
 
-## Project Status (2026-05-14)
+## Project Status (2026-05-15)
 
-- **Data**: 4751 → 4447 (deduplicated) → 1822 Evans clean, 7-step pipeline
-- **Features**: Morgan FP, DRFP, RXNFP, RDKit desc, cond(35d), aux(6d), **enolate 3D steric(24d)**, **aldehyde 3D steric(10d)**
-- **Models**: 45 unique × 3 splits = 135 prediction CSVs
-- **Champion**: ChiralAldolV2-XGB (75d), temporal bal_acc=**0.783** (+11.9% over V1-XGB)
-- **表格天花板确认**: B1 xTB(0.696), C1 qTS(0.628), V5 cross(0.758) 全部不如 V2 — 0.783 是表格方法极限
-- **下一步**: 发表论文 (ACS Catalysis / JCIM target)
+- **Data**: 4751 → 4447 → 1801 Evans clean (Phase A 清洗), 4258 全量 (含非 Evans)
+- **Features**: 75d V2 (enolate 24d + aldehyde 10d + cond 35d + aux 6d) = **严格最优**
+- **Models**: 47 tabular + 9 GNN + feature fusion = **56+ 模型**
+- **Champion**: ChiralAldolV2-XGB (75d)
+  - TSCV 4-fold mean: **0.682 ± 0.044** (可靠评估)
+  - Scaffold: **0.826**, Grouped: **0.807**
+- **天花板确认**: 表格 + GNN + fingerprint 融合 = 全部不如 V2 (75d) alone
+- **关键发现**: 单 temporal split (0.783) 因 C1=5 样本不稳定, TSCV 是更可靠指标
 
 ---
 
@@ -133,19 +135,20 @@ Current best (ChiralAldol-Stack 0.725) is far from 0.90+ accuracy needed for pra
 
 ## Legacy Issues (from 2026-05-09 audit)
 
-### P1 — Missing baseline prediction CSVs
+- [x] **P1**: MajorityClass/Random save_preds() — RESOLVED (Phase 11 规整)
+- [ ] **P2**: drfp_aux_cond_xgboost 无独立脚本 — 低优先级
+- [x] **P3**: t5chem_clf/gcpnet phantom entries — RESOLVED (已从 NAME_MAP 移除)
 
-- [ ] `MajorityClass` and `Random` in `run_all_models.py` computed metrics but did not call `save_preds()`. CSVs missing from `results/predictions/`. Fix: re-run with save enabled.
+## Phase A-D (2026-05-15) — 数据清洗 + GNN + 融合
 
-### P2 — Unscripted prediction file
-
-- [ ] `drfp_aux_cond_xgboost_*.csv` exists but was generated via inline Python (Phase 8 discussion), no standalone script. Fix: document provenance or scriptify.
-
-### P3 — Phantom NAME_MAP entries
-
-- [ ] `t5chem_clf` (T5Chem-Clf): API incompatible, no predictions generated
-- [ ] `gcpnet` (GCPNet): protein-oriented, abandoned
-- Fix: remove from NAME_MAP or mark as "Not Pursued"
+- [x] **A1**: chirality_valid bug 修复 + 21 行删除 → 1801 行
+- [x] **A3**: 溶剂推断 (386/497 填充, 93.9% known)
+- [x] **A4**: Time-series CV (4-fold mean = 0.682 ± 0.044)
+- [x] **A5**: V2-XGB 重训练 (scaffold 0.826, grouped 0.807)
+- [x] **B2**: 全量数据集 all_clean.csv (4258 行)
+- [x] **B4**: 4 种图表示 (diff/multiview/3D/TS)
+- [x] **C**: GNN 12 组合 (**负面**: 最佳 0.497, 远低于 V2)
+- [x] **D**: 特征融合 (**负面**: V2 alone > V2+any fingerprint)
 
 ---
 

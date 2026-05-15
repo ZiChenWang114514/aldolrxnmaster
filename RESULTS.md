@@ -1,8 +1,46 @@
 # Benchmark Results
 
-45 models evaluated on Evans asymmetric aldol reaction stereochemistry prediction (1822 reactions, 4-class joint Ca×Cb label).
+56+ models evaluated on Evans asymmetric aldol reaction stereochemistry prediction.
+Cleaned dataset: **1801 reactions** (from 1822), 4-class joint Ca×Cb label.
 
-## Evans Temporal Split (Primary Evaluation, Hardest)
+## Evaluation Metrics
+
+| Metric | Champion (V2-XGB) | Notes |
+|--------|-------------------|-------|
+| **TSCV 4-fold mean** | **0.682 ± 0.044** | Most reliable; 4 temporal windows |
+| Temporal single split | 0.69 (clean) / 0.783 (old) | C1=5 samples → unstable |
+| Scaffold | **0.826** | In-distribution generalization |
+| Grouped random | **0.807** | Stratified random |
+
+> **注意**: 单 temporal split 的 0.783 因 C1 仅 5 样本不稳定 (2 预测变化 = ±0.11)。
+> TSCV 4-fold mean (0.682 ± 0.044) 是更可靠的 temporal 评估。
+
+## GNN 实验结果 (Phase C, 2026-05-15)
+
+| Model | Graph | Fusion | Temporal bal_acc |
+|-------|-------|--------|-----------------|
+| MPNN+FiLM | diff | FiLM | **0.497** |
+| Equiformer+concat | 3D spatial | concat | 0.458 |
+| SchNet+FiLM | 3D spatial | FiLM | 0.389 |
+| SchNet+concat | 3D spatial | concat | 0.343 |
+| MPNN+concat | diff | concat | 0.312 |
+| MPNN+inject | diff | inject | 0.288 |
+
+**结论**: GNN 全面不如 V2-XGB (0.69)。1801 样本不足以训练 GNN。
+
+## 特征融合结果 (Phase D, 2026-05-15)
+
+| Features | Temporal bal_acc |
+|----------|-----------------|
+| **V2 (75d)** | **0.690** |
+| V2+DRFP (203d) | 0.625 |
+| V2+RXNFP (331d) | 0.621 |
+| DRFP+Cond (163d) | 0.624 |
+| V2+DRFP+RXNFP (459d) | 0.548 |
+
+**结论**: V2 (75d) strictly 最优。加任何 fingerprint 都降低 temporal 性能。
+
+## Evans Temporal Split — Tabular Models (原始 1822 行数据)
 
 Train ≤2015 (1500), Val 2016-2018 (167), Test ≥2019 (155)
 

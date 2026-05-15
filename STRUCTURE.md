@@ -28,22 +28,30 @@ aldolrxnmaster/
 │   │   └── *.log                      # 每步审计日志
 │   │
 │   ├── processed/
-│   │   ├── evans_clean.csv            # 最终 Evans 清洗数据 (1822 行, 39 列)
+│   │   ├── evans_clean.csv            # 原始 Evans 清洗数据 (1822 行, legacy)
+│   │   ├── evans_v2_clean.csv         # Phase A 清洗后 (1801 行, 当前使用)
+│   │   ├── all_clean.csv              # 全量清洗数据 (4258 行, Evans+非Evans)
+│   │   ├── non_evans_clean.csv        # 非 Evans 子集 (2457 行)
+│   │   ├── quality_audit.csv          # 行级质量审计 (confidence 标签)
 │   │   ├── features/
-│   │   │   ├── labels.csv             # 标签 (label_Ca, Cb, SA, joint, group_id, Year)
-│   │   │   ├── reaction_smiles.csv    # 清洗后反应 SMILES (reactants>>product)
-│   │   │   ├── reaction_conditions.csv # 反应条件 (metal 9d + solvent 5d = 14d)
-│   │   │   ├── rdkit_descriptors.csv  # RDKit 2D 描述符 (51d)
-│   │   │   ├── morgan_fps.npz         # Morgan FP (ketone/aldehyde/product/rxn_diff, 各 2048-bit)
-│   │   │   ├── tabular_features.npz   # 合并表格特征 (4161d)
-│   │   │   ├── drfp_fps.npz           # DRFP 反应指纹 (1822×2048, binary)
-│   │   │   └── rxnfp_fps.npz          # RXNFP 反应指纹 (1822×256, float)
+│   │   │   ├── labels.csv             # 标签 (1801 行, label_joint etc.)
+│   │   │   ├── reaction_smiles.csv    # 清洗后反应 SMILES
+│   │   │   ├── reaction_conditions.csv # 反应条件 (35d, 含溶剂推断)
+│   │   │   ├── auxchiral_features.csv # 辅基手性 (6d)
+│   │   │   ├── drfp_fps.npz           # DRFP (1801×2048)
+│   │   │   └── rxnfp_fps.npz          # RXNFP (1801×256)
 │   │   ├── splits/
-│   │   │   ├── evans_temporal.json     # 时间分割 (train≤2015, val 2016-18, test≥2019)
+│   │   │   ├── evans_temporal.json     # 时间分割 (1801 行重建)
 │   │   │   ├── evans_scaffold.json     # Murcko scaffold 分割
-│   │   │   └── evans_grouped_random_seed*.json  # 分组随机分割 (5 seeds)
+│   │   │   └── evans_grouped_random_seed*.json  # 分组随机 (5 seeds)
+│   │   ├── graphs/                     # GNN 图表示 (Phase B)
+│   │   │   ├── diff_graphs.pt          # 反应差异图 (1801, atom-mapped)
+│   │   │   ├── multiview_graphs.pt     # 多视图图 (reactant+product)
+│   │   │   ├── spatial_3d_graphs.pt    # 3D 空间图 (conformer coords)
+│   │   │   ├── ts_approx_graphs.pt     # TS 近似图 (bond change)
+│   │   │   └── all_diff_graphs.pt      # 全量差异图 (4258, 迁移学习用)
 │   │   └── conformers/
-│   │       └── conformers.pkl          # 3D 构象 (ketone/aldehyde/product, ETKDG+MMFF)
+│   │       └── conformers.pkl          # 3D 构象 (ETKDG+MMFF)
 │   │
 │   └── quality_report/
 │       ├── report.txt                  # 数据质量文本报告
@@ -75,29 +83,43 @@ aldolrxnmaster/
 │   ├── run_chemahnet.py                # ChemAHNet-style chemistry-informed DL
 │   ├── run_chienn_product.py           # ChiENN chirality-aware GNN
 │   ├── run_equireact.py                # EquiReact 3D equivariant (equireact env)
-│   ├── generate_3d_conformers.py       # 3D 构象生成 (RDKit ETKDG+MMFF)
+│   ├── run_chiralaldol_pipeline.py     # ChiralAldol 全管线 (enolate→conf→steric→train)
+│   ├── run_data_audit.py               # Phase A: 数据审计+清洗 (1822→1801)
+│   ├── run_prepare_all_data.py         # Phase B2: 全量数据集 all_clean.csv
+│   ├── run_timeseries_cv.py            # Phase A4: Time-series CV (4-fold temporal)
+│   ├── run_build_graphs.py             # Phase B4: 4 种 GNN 图表示构建
+│   ├── run_gnn_benchmark.py            # Phase C: GNN 12 组合 coarse screening
+│   ├── run_transfer_learning.py        # Phase D: 迁移学习 (部分完成)
 │   ├── rebuild_comparison.py           # 从 prediction CSVs 重建统一对比表
-│   ├── rerun_failed_models.py          # 重跑失败模型 (DistilBERT/RoBERTa/MolT5)
-│   └── run_t5chem_classification.py    # T5Chem 分类 (API 不兼容, 未成功)
+│   └── run_v5_pipeline.py              # V5 交叉项 (负面结果)
 │
 ├── chiralaldol/                           # ChiralAldol 核心模块
 │   ├── enolate_generator.py               # M1: 酮 → Z/E 烯醇盐
 │   ├── conformer_sampler.py               # M2: 构象系综采样 (100 conf → RMSD 聚类)
 │   ├── steric_descriptors.py              # M3: 烯醇盐 3D 立体 (%Vbur, Sterimol, 二面角, 24d)
 │   ├── aldehyde_steric.py                 # M3b: 醛基 3D 立体 (Sterimol, Vbur, 10d)
+│   ├── solvent_lookup.py                  # 溶剂推断 + Kamlet-Taft 参数表
 │   ├── xtb_descriptors.py                 # B1: GFN2-xTB 电子 12d (负面结果)
 │   ├── qts_builder.py                     # C1: qTS VDW 立体 4d (负面结果)
 │   ├── feature_builder.py                 # M4: 特征集成 (V1/V2/V3/V3b/V5)
-│   └── utils.py                           # 工具函数
+│   ├── utils.py                           # 工具函数
+│   └── gnn/                               # GNN 模块 (Phase C)
+│       ├── graph_builder.py               # 4 种图表示构建
+│       ├── mpnn_diff.py                   # G1: MPNN on 反应差异图
+│       ├── gat_multiview.py               # G2: GAT 多视图 (reactant+product)
+│       ├── equiformer.py                  # G3: SE(3)-equivariant Transformer
+│       ├── schnet_3d.py                   # G4: SchNet 3D 连续卷积
+│       ├── condition_fusion.py            # FiLM / Concat / Inject 融合
+│       └── trainer.py                     # 统一训练循环
 │
 ├── results/
-│   ├── predictions/                    # 141 个 prediction CSV (47 models × 3 splits)
+│   ├── predictions/                    # prediction CSVs (47+ tabular + GNN)
 │   ├── tables/
-│   │   ├── comparison_evans_temporal.csv
-│   │   ├── comparison_evans_scaffold.csv
-│   │   ├── comparison_evans_grouped_random_seed42.csv
-│   │   ├── full_evans_*.json           # 详细指标 + 混淆矩阵 + CI
-│   ├── models/                         # (未使用, 未保存 checkpoints)
+│   │   ├── comparison_evans_temporal.csv   # 全模型对比
+│   │   ├── gnn_coarse_screening.csv        # GNN 12 组合结果
+│   │   ├── tscv_results.json               # Time-series CV 4-fold
+│   │   └── full_evans_*.json               # 详细指标 + CI
+│   ├── models/                         # (未保存 checkpoints)
 │   └── figures/                        # (未生成)
 │
 ├── external/                           # 外部 SOTA repos + 预训练权重

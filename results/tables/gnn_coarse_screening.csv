@@ -1,0 +1,13 @@
+name,bal_acc,best_val_acc,n_params,epochs,error
+mpnn_film_diff,0.4966851050184383,0.5007341554267939,6532932,33,
+equiformer_concat_spatial_3d,0.4584495751162418,0.5043701321212072,281384,32,
+schnet_film_spatial_3d,0.3892857142857143,0.443358603806365,307396,22,
+equiformer_film_spatial_3d,0.35278980278980276,0.6016654687284588,387112,94,
+schnet_concat_spatial_3d,0.34310966810966814,0.5653562293456045,201668,47,
+mpnn_concat_diff,0.3117845117845118,0.55004604365849,6427204,31,
+mpnn_inject_diff,0.2876543209876543,0.45923161967938086,6410692,28,
+equiformer_inject_spatial_3d,0.2771765271765272,0.4927029501403395,260392,63,
+schnet_inject_spatial_3d,0.27694805194805194,0.4730853735091023,180676,38,
+gat_concat_multiview,0.0,0.0,0,0,Unable to infer 'num_nodes' from the attribute 'edge_index_r'. Please explicitly set 'num_nodes' as an attribute of 'data' to prevent this error
+gat_film_multiview,0.0,0.0,0,0,Unable to infer 'num_nodes' from the attribute 'edge_index_r'. Please explicitly set 'num_nodes' as an attribute of 'data' to prevent this error
+gat_inject_multiview,0.0,0.0,0,0,Unable to infer 'num_nodes' from the attribute 'edge_index_r'. Please explicitly set 'num_nodes' as an attribute of 'data' to prevent this error

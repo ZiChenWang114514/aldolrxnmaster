@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-05-15: Phase A-D — 数据清洗 + GNN 实验 + 特征融合
+
+### Phase A: 数据清洗 ✓
+- **chirality_valid bug 修复**: `validate_smiles.py` 使用 `Product_` 列 (显式 H) 导致立体标注丢失, 48.8% valid → 改用 `Raw_Product_Smiles` → **100% valid**
+- **删除 21 行缺失 Ketone/Aldehyde**: 1822 → 1801 行
+- **溶剂推断**: `chiralaldol/solvent_lookup.py` 基于 metal→solvent 规则 (B→CH2Cl2, Li→THF, Sn→CH2Cl2, etc.), 497 unknown → 109 unknown (386 filled)
+- **Time-series CV**: `scripts/run_timeseries_cv.py`, 4-fold temporal CV mean bal_acc = **0.682 ± 0.044**
+- **全量数据集**: `data/processed/all_clean.csv` (4258 行: Evans 1801 + 非 Evans 2457)
+- 新文件: `scripts/run_data_audit.py`, `scripts/run_prepare_all_data.py`, `data/processed/quality_audit.csv`
+
+### Phase B: 图表示构建 ✓
+- 4 种 PyG Data 图: diff (1801/1801), multiview (1801), 3D spatial (1798/1801), TS approx (1801)
+- Atom mapping 验证: 全部 1801 行化学正确 (Evans aldol → 1 新 C-C 键)
+- 新文件: `chiralaldol/gnn/graph_builder.py`, `data/processed/graphs/*.pt`
+
+### Phase C: GNN 实验 ✓ (负面结果)
+- 4 架构 × 3 融合 = 12 组合, `scripts/run_gnn_benchmark.py`
+- **MPNN+FiLM (diff): 0.497** (最佳 GNN, 但远低于 V2-XGB)
+- Equiformer+concat: 0.458, SchNet+FiLM: 0.389, SchNet+concat: 0.343
+- GAT 多视图: batching 错误 (已修复, 待重跑)
+- 根因: 1801 样本不足以端到端学习立体化学
+- 新文件: `chiralaldol/gnn/` 目录 (mpnn_diff, gat_multiview, equiformer, schnet_3d, condition_fusion, trainer)
+
+### Phase D: 特征融合 ✓ (负面结果)
+- V2+DRFP(203d): 0.625, V2+RXNFP(331d): 0.621, V2+DRFP+RXNFP(459d): 0.548
+- **V2 (75d) alone 是严格最优**, 加任何 fingerprint 都降低 temporal 性能
+- 结论: curse of dimensionality on small data; 手工 3D steric features 不可替代
+
+### 关键发现
+1. 单 temporal split 不可靠 (C1=5 样本, 2 预测变化 = bal_acc ±0.11)
+2. TSCV (0.682±0.044) 是比单 split (0.783) 更可靠的评估
+3. 手工 3D 特征 > GNN > fingerprint > transformer (在此小数据集上)
+
 ## 2026-05-14: Phase V5 — 交叉项+多模型集成 (负面结果)
 
 ### Added

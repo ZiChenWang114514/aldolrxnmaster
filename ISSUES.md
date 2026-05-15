@@ -100,13 +100,30 @@
 - These may represent: (1) label noise, (2) non-Evans selectivity mechanisms, or (3) missing features (aldehyde steric, electronic effects)
 - Saved to `notebooks/02_shap_analysis/hard_cases.csv` for future investigation
 
-### M11: 醛基完全未建模 — 当前最关键的特征盲点 (2026-05-12 识别)
+### M11: 醛基完全未建模 — ✓ RESOLVED (Phase 11-A1)
 
-- **问题**: 现有 24d steric 特征全部描述烯醇盐（亲核体），对醛（亲电体）的 R-group 空间体积零描述
-- **影响**: Zimmerman-Traxler TS 的立体选择性由两个因素决定：(1) 烯醇盐暴露哪个面（已建模），(2) 醛基 R₂ 占赤道键 vs 直立键（完全未建模）
-- **症状**: 11 个硬案例中 63.6% 是 C3 (syn-S)，可能正是因为 S-辅基反应中醛基效应被错误忽略
-- **修复路径**: A1 任务 — 醛基 Sterimol (L/B1/B5) + %Vbur，复用 `steric_descriptors.py` 现有函数
-- **预期增益**: 添加 ~12d 特征后重新训练 Stacking，预期 C3 准确率提升最显著
+- **问题**: 现有 24d steric 特征全部描述烯醇盐, 醛 R-group 零描述
+- **修复**: `chiralaldol/aldehyde_steric.py` — 10d 特征 (L/B1/B5/Vbur, mean/std)
+- **结果**: V1-XGB 0.664 → **V2-XGB 0.783** (+11.9%), 最大单次提升
+
+### M12: chirality_valid 列使用错误的 SMILES 列 — ✓ RESOLVED (Phase A)
+
+- **问题**: `validate_smiles.py` 用 `Product_` (显式 H 映射 SMILES) 检测手性中心, 该列丢失了 @/@@
+- **影响**: 48.8% chirality_valid (实际 100% 有效)
+- **修复**: `scripts/run_data_audit.py` 改用 `Raw_Product_Smiles` → 100% valid
+
+### M13: GNN 在小数据集上全面失败 (Phase C)
+
+- 4 架构 × 3 融合 = 12 组合, 最佳 MPNN+FiLM = 0.497
+- 远低于 V2-XGB (0.69), 甚至不如简单 fingerprint 模型
+- **根因**: 1801 样本不足以端到端学习立体化学; 手工 3D 特征编码了 ZT 机理知识
+- **状态**: 负面结果, 记录存档
+
+### M14: 单 temporal split 评估不可靠
+
+- C1 (anti-1) 在 test set 仅 5 样本, 2 个预测变化 = bal_acc ±0.11
+- 旧数据 0.783 vs 清洗后 0.69 的差异完全由此导致
+- **修复**: 引入 Time-series CV (4-fold), mean = 0.682 ± 0.044
 
 ### M12: sin_tau1 代理 TS 几何，本质是近似
 

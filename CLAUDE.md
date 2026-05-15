@@ -1,36 +1,42 @@
 # AldolRxnMaster
 
-Evans 不对称 aldol 反应 4-class 立体化学预测 — 35 模型 benchmark + ChiralAldol 创新方法。
+Evans 不对称 aldol 反应 4-class 立体化学预测 — 47+ 模型 benchmark + ChiralAldol + GNN 方法。
 
-## 当前状态 (2026-05-14)
+## 当前状态 (2026-05-15)
 
-- **47 模型 × 3 splits = 141 prediction CSVs**
-- **冠军**: ChiralAldolV2-XGB (enolate+aldehyde 3D steric + cond + aux, 75d), temporal bal_acc=**0.783**
-- **前冠军**: ChiralAldol-Stack (0.725), 被 V2-XGB 超越 +5.8%
-- **数据**: 1822 Evans 反应, 4-class joint Ca×Cb label
+- **数据**: 1801 Evans 反应 (清洗后), 4258 全量反应 (含非 Evans 用于迁移学习)
+- **冠军**: ChiralAldolV2-XGB (75d), TSCV 4-fold mean bal_acc=**0.682 ± 0.044**
+- **单 temporal split**: 0.69 (清洗后) / 0.783 (旧数据, 因 C1 仅 5 样本不稳定)
+- **scaffold**: 0.826, **grouped_random**: 0.807
 - **SHAP**: sin_tau1 (#1), Vbur_diff (#4), top-10 中 3D 特征占 6/10
-- **Phase 11-A1 完成**: 醛基 Sterimol/%Vbur 10d → 0.664→0.783 (+11.9%)
-- **Phase 11-B1 完成 (负面结果)**: GFN2-xTB 电子描述符无增益
-  - V3-XGB (87d, 全量 xTB): temporal **0.696** (退步 -8.7%)
-  - V3b-XGB (80d, 5d clean ald xTB): temporal **0.721** (仍不如 V2)
-  - 根因: 烯醇盐 xTB 59% 计算失败；Evans aldol 是立体控制反应，HOMO/LUMO 无关
-- **Phase C1 完成 (负面结果)**: qTS 准过渡态 VDW steric 特征无增益
-  - V4-XGB (79d = 75d V2 + 4d qTS VDW): temporal **0.628** (退步 -15.5%)
-  - 根因: 近似 ZT 坐标构建中 si/re 面分配不一致 (不同醛基 C=O 方向不同)；
-    VDW clash 特征与 label 相关性 r ≈ −0.03 (接近零)
-  - GFN2/GFN1-xTB 真实 TS 优化速度 50-120s/分子，1822×4 = ~60h，不可行
-  - **结论**: V2 (75d) 仍是最优方案；qTS 需要更严格的 ZT 环坐标 + 正确的 si/re 几何
-- **Phase V5 完成 (负面结果)**: 交叉项 + Z/E + 多模型集成
-  - V5-XGB (87d = 75d V2 + 12d cross): temporal **0.758** (不如 V2)
-  - V5-LGBM: 0.749; V5-ET: 0.742; V5-Stack: 0.694; V5s (feature-selected): 0.708
-  - 交叉项 (sin_tau1×ald_Vbur 等) 在训练集 r=0.33 但不迁移到 temporal test set (2019+)
-  - V5-Stack scaffold **0.864** 和 grouped **0.795** 优于 V2，但 temporal 是主评指标
-  - **结论**: 0.783 是此数据集+表格特征方法的天花板；新增 feature 一律不如 V2 (75d)
-- **下一步候选**:
-  1. **接受 0.783 作为最终结果** — 对 4-class 立体化学预测已是强结果
-  2. **图神经网络/分子注意力** — 非表格特征方法，可能突破天花板
-  3. **更多数据** — 1822 反应有限，扩展数据集
-  4. **改进 qTS 几何** — 正确 ZT 6-元环坐标，但 V5 结果暗示表格方法本身已到极限
+- **表格方法天花板已确认**: 4 次扩展全部失败 (B1 xTB, C1 qTS, V5 cross, feature fusion)
+- **GNN 全部失败**: 4 架构 × 3 融合 = 12 组合, 最佳 MPNN+FiLM=0.497 (远低于 V2)
+- **手工 3D 特征 > 所有学到的表示**: GNN/Transformer/fingerprint 均不如 75d 手工特征
+
+### Phase A: 数据清洗 ✓
+- 1822 → 1801 行 (删 21 缺失分子)
+- **chirality_valid bug 修复**: Product_ 列丢失立体标注 → 改用 Raw_Product_Smiles → 100% valid
+- **溶剂推断**: 497 unknown → 109 (B→CH2Cl2, Li→THF, etc.)
+- **Time-series CV**: 4-fold temporal mean = 0.682 ± 0.044
+- 输出: `data/processed/evans_v2_clean.csv`, `data/processed/all_clean.csv` (4258 行)
+
+### Phase B: 图表示构建 ✓
+- 4 种 PyG 图: diff (100%), multiview (100%), 3D spatial (99.8%), TS approx (100%)
+- Atom mapping 验证: 100% 化学正确 (新 C-C 键 Cb=OH, Ca=α-carbon)
+- 输出: `data/processed/graphs/`
+
+### Phase C: GNN 实验 ✓ (负面结果)
+- MPNN+FiLM (diff graph): **0.497** (最佳 GNN)
+- Equiformer (SE3, 3D): 0.458
+- SchNet (3D): 0.389
+- GAT 多视图: 修复了 batching 问题, 待重跑
+- **根因**: 1801 样本不足以训练 GNN; 手工 3D 特征编码了 ZT 机理知识
+
+### Phase D: 特征融合 ✓ (负面结果)
+- V2+DRFP: 0.625 (不如 V2 alone)
+- V2+RXNFP: 0.621
+- V2+DRFP+RXNFP: 0.548
+- **加任何 fingerprint 都降低 temporal 性能** (curse of dimensionality)
 
 ## 环境
 
@@ -40,12 +46,13 @@ Evans 不对称 aldol 反应 4-class 立体化学预测 — 35 模型 benchmark 
 
 ## 关键路径
 
-- 数据: `data/processed/features/` (labels.csv, reaction_smiles.csv, drfp_fps.npz, rxnfp_fps.npz, tabular_features.npz)
-- 分割: `data/processed/splits/` (evans_temporal.json, evans_scaffold.json, evans_grouped_random_seed42.json)
-- 结果: `results/predictions/` (35 models × 3 splits = 105 CSVs), `results/tables/` (comparison 汇总)
-- 外部模型: `external/` (9 个 clone 的 SOTA repo)
-- **ChiralAldol 方法**: `chiralaldol/` (enolate_generator, conformer_sampler, steric_descriptors, feature_builder)
-- **ChiralAldol 数据**: `data/processed/chiralaldol/` (enolates.csv, conformer_ensembles.pkl, steric_features.csv)
+- **清洗后数据**: `data/processed/evans_v2_clean.csv` (1801 行), `data/processed/all_clean.csv` (4258 行)
+- **特征**: `data/processed/features/` (labels.csv, reaction_conditions.csv, auxchiral_features.csv, drfp_fps.npz, rxnfp_fps.npz)
+- **分割**: `data/processed/splits/` (evans_temporal.json, evans_scaffold.json, evans_grouped_random_seed42.json)
+- **图表示**: `data/processed/graphs/` (diff_graphs.pt, multiview_graphs.pt, spatial_3d_graphs.pt, ts_approx_graphs.pt)
+- **结果**: `results/predictions/`, `results/tables/` (comparison, gnn_coarse_screening.csv, tscv_results.json)
+- **ChiralAldol 方法**: `chiralaldol/` (enolate_generator, conformer_sampler, steric_descriptors, feature_builder, aldehyde_steric, solvent_lookup)
+- **GNN 模块**: `chiralaldol/gnn/` (graph_builder, mpnn_diff, gat_multiview, equiformer, schnet_3d, condition_fusion, trainer)
 - **分析**: `notebooks/02_shap_analysis/` (shap_importance.csv, hard_cases.csv)
 
 ## 常用命令
