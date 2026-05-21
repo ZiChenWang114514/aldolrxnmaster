@@ -1,8 +1,18 @@
-# ChiralAldol: Chemistry-Informed 3D Steric Descriptors for Evans Aldol Stereoselectivity
+# ChiralAldol + MechAware: Mechanism-Informed Stereoselectivity Prediction
 
 ## Overview
 
-ChiralAldol is a novel method for predicting Evans asymmetric aldol reaction stereoselectivity using chemistry-informed 3D steric descriptors derived from enolate conformational ensembles. Unlike end-to-end 3D deep learning approaches (which failed on this task: ChiENN 0.257, EquiReact 0.318), ChiralAldol leverages explicit mechanistic modeling of the enolate intermediate to extract interpretable face-dependent steric features.
+ChiralAldol is a method for predicting Evans asymmetric aldol reaction stereoselectivity using chemistry-informed 3D steric descriptors. **MechAware** extends it with explicit Z/E enolate separation and base-dependent weighting.
+
+**Champion**: MechAware-Full (151d), TSCV = **0.733 ± 0.074** (V3 公平基准, 2026-05-16)
+
+Key modules:
+- `ze_enolate_generator.py` — Z/E 3D dihedral marking + constrained conformer generation
+- `steric_descriptors.py` — %Vbur (face-dependent) + Sterimol + dihedral encoding (24d)
+- `aldehyde_steric.py` — Aldehyde Sterimol + Vbur (10d)
+- `conformer_sampler.py` — ETKDGv3 conformer ensemble (no MMFF)
+- `feature_builder.py` — V1-V5 feature assembly
+- `rebuild/` — V3 16-step data cleaning pipeline
 
 ## Chemistry
 

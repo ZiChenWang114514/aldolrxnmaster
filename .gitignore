@@ -9,11 +9,14 @@ dist/
 build/
 *.eggs/
 
-# Data (raw is tracked via DVC or checksums, not git)
-data/raw/
-data/interim/
-data/processed/
-data/quality_report/
+# Data (not tracked in git — use DVC or checksums)
+data/
+*.pkl
+*.pt
+*.npz
+
+# Archive data contents (large binary files)
+archive/data_processed/
 
 # Results
 results/models/

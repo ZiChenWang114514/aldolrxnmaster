@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-05-16: 系统性重构 + DRFP 泄漏确认
+
+### 项目整理
+- 统一脚本命名 (全部 `run_*.py`)
+- 数据目录重组: `data/{raw,clean,features,splits}` 替代旧 `data/processed/`
+- 归档旧代码到 `archive/`
+- 建立 `MODEL_REGISTRY.md` (47+ 模型)
+- 重组 `results/predictions/` 为 5 类目录
+
+### DRFP 泄漏确认
+- 产物 SMILES @/@@ 直接编码了标签 → DRFP TSCV 从 0.82 降至 0.58
+- 纯反应物 DRFP = 0.25 (随机) → DRFP 对立体预测本质无用
+- 旧 group_id 泄漏: scaffold -7%, grouped -10%
+
+### V3 公平基准
+- 15 active models × 10 splits = 150 evaluations
+- Champion: MechAware-Full TSCV=0.733
+
+## 2026-05-15/16: MechAware 机制感知模型
+
+- Z/E 烯醇盐显式构象生成 (3D dihedral marking + coordMap 约束)
+- Base-weighted steric: w_Z × Z_desc + w_E × E_desc
+- MechAware-Full (151d): TSCV 0.733 (+5.3% over V2)
+- 快速构象: ETKDGv3 only (无 MMFF), 8 workers multiprocessing
+
+## 2026-05-15: V3 数据全量重建 (16 步管线)
+
+- 从 alldata.csv (4751行) 全量重建
+- SA 一致性校验, 角色保留去重, 语义溶剂解析
+- Evans: 4751 → 1655 行 (严格清洗)
+- 修复 34 个审计发现的 bug
+
 ## 2026-05-15: Phase A-D — 数据清洗 + GNN 实验 + 特征融合
 
 ### Phase A: 数据清洗 ✓
