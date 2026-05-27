@@ -1,77 +1,82 @@
 # Results — AldolRxnMaster
 
-Evans 不对称 Aldol 反应 4-class 立体化学预测基准。
+基于底物控制（手性辅基）的 Aldol 反应 4-class 立体化学预测基准。
 
-## V3 公平基准 (2026-05-16)
+## V4c 基准 (2026-05-27)
 
-**数据**: 1655 Evans reactions (V3 严格清洗)  
-**划分**: TSCV 4-fold temporal + Scaffold (Murcko) + Grouped random (5 seeds)  
-**评估**: balanced accuracy (macro-averaged recall, 4-class)  
-**无泄漏**: 角色保留 group_id，所有划分经过泄漏验证
+**数据**: 2288 substrate-controlled aldol reactions (V4, 从 134K Reaxys 原始数据重建)
+**辅基**: Evans (1636) + Crimmins thione (258) + Crimmins oxathione (139) + Oppolzer (137) + Other (104) + Myers (14)
+**特征**: Steric (34d) + Conditions (44d) + Auxiliary (6d) + Chirality (7d) + R-group (8d) + ChiralEnv (21d) + AldPriority (8d) = **128d**
+**MechAware**: BW (112d) / Full (328d) 可选叠加
+**划分**: TSCV 4-fold temporal + Scaffold (Murcko) + Grouped random (5 seeds)
+**评估**: balanced accuracy (macro-averaged recall, 4-class)
+**无泄漏**: role-aware group_id, DRFP 已排除, 手性特征仅从酮 SMILES 提取
 
-### Champion: MechAware-Full (TSCV = 0.733)
+### Champion: ma_bw_xgb (TSCV = 0.625, Grouped = 0.773)
 
 ### 完整排名
 
-| Rank | Key | Full Name | Category | Dim | TSCV mean±std | Scaffold | Grouped mean |
-|------|-----|-----------|----------|-----|---------------|----------|--------------|
-| 1 | ma_full | **MechAware-Full** | steric | 151d | **0.733±0.074** | 0.672 | 0.732 |
-| 2 | ma_bw | MechAware-BW | steric | 79d | 0.725±0.060 | 0.652 | 0.723 |
-| 3 | cv2_xgb | ChiralAldol-V2-XGB | steric | 78d | 0.696±0.023 | 0.737 | 0.731 |
-| 4 | condaux_xgb | CondAux-XGB | baseline | 53d | 0.689±0.086 | 0.666 | 0.680 |
-| 5 | cv2_rf | ChiralAldol-V2-RF | steric | 78d | 0.680±0.049 | 0.706 | 0.726 |
-| 6 | cv2_et | ChiralAldol-V2-ET | steric | 78d | 0.665±0.039 | 0.709 | 0.741 |
-| 7 | cv2_lgbm | ChiralAldol-V2-LGBM | steric | 78d | 0.649±0.052 | 0.726 | 0.720 |
-| 8 | knn_1 | 1-NN | baseline | 78d | 0.599±0.090 | 0.679 | 0.646 |
-| 9 | knn_5 | 5-NN | baseline | 78d | 0.576±0.066 | 0.646 | 0.584 |
-| 10 | steronly_xgb | StericOnly-XGB | steric | 24d | 0.514±0.053 | 0.535 | 0.587 |
-| 11 | cond_xgb | CondOnly-XGB | baseline | 44d | 0.392±0.028 | 0.394 | 0.440 |
-| 12 | majority | MajorityClass | baseline | — | 0.250±0.000 | 0.250 | 0.250 |
+| Rank | Model | Category | Dim | TSCV mean±std | Scaffold | Grouped mean±std |
+|------|-------|----------|-----|---------------|----------|-----------------|
+| 1 | **ma_bw_xgb** | mechaware | 156d | **0.625±0.040** | 0.595 | **0.773±0.024** |
+| 2 | **v4b_full_et** | v4b | 128d | 0.621±0.032 | **0.607** | 0.748±0.028 |
+| 3 | ma_full_xgb | mechaware | 372d | 0.602±0.032 | 0.596 | 0.754±0.025 |
+| 4 | v4b_full_xgb | v4b | 128d | 0.602±0.038 | 0.594 | 0.759±0.023 |
+| 5 | v4b_full_rf | v4b | 128d | 0.587±0.044 | 0.586 | 0.752±0.025 |
+| 6 | v4b_full_lgbm | v4b | 128d | 0.571±0.033 | 0.591 | 0.741±0.033 |
+| 7 | steronly_xgb | steric | 34d | 0.553±0.017 | 0.523 | 0.675±0.030 |
+| 8 | v4b_no_chiral_xgb | ablation | 84d | 0.507±0.024 | 0.454 | 0.662±0.011 |
+| 9 | v4b_condaux_xgb | v4b | 65d | 0.450±0.018 | 0.466 | 0.573±0.018 |
+| 10 | v4b_chiral_only_xgb | ablation | 7d | 0.410±0.028 | 0.424 | 0.496±0.007 |
+| 11 | cond_xgb | baseline | 44d | 0.227±0.035 | 0.313 | 0.405±0.009 |
+| 12 | majority | baseline | — | 0.250±0.000 | 0.250 | 0.250±0.000 |
 
-### ⚠️ 泄漏模型（已排除）
+### V4 → V4c 改进历程 (2026-05-27)
 
-| Key | Full Name | Reported TSCV | Leakage Mechanism |
-|-----|-----------|---------------|-------------------|
-| drfp_xgb | DRFP-XGB | ~~0.849~~ | 产物 SMILES @/@@ → DRFP shingles 直接编码立体化学 |
-| drfp_cond_xgb | DRFP+Cond-XGB | ~~0.872~~ | 同上 |
+| 指标 | V4 (84d) | V4b (120d) | V4c (128d) | 总提升 |
+|------|----------|-----------|-----------|--------|
+| TSCV champion | 0.507 | 0.565 | **0.625** | **+23.3%** |
+| Grouped champion | 0.662 | 0.694 | **0.773** | **+16.8%** |
+| Scaffold champion | 0.480 | 0.513 | **0.607** | **+26.5%** |
+
+### 新增特征 (44d over V4 baseline)
+
+1. **辅基手性 (7d)**: 从酮 SMILES 提取 CIP — `chiral_dominant_sign` (r=-0.376), `chiral_aux_c4_R` (r=-0.362)
+2. **R-基团 (8d)**: Evans C4 取代基分类 (benzyl/isopropyl/phenyl 等) + Oppolzer one-hot
+3. **手性环境 (21d)**: 距离分层立体中心计数 (≤3/≤4/≤5 键), 手性梯度, 醛手性环境
+4. **醛 CIP 优先级 (8d)**: 芳香性、alpha 支链度、原子序数、卤素/杂原子、链长、优先级代理
+
+### 关键诊断发现
+
+2-class 相对立体 (label_SA) TSCV = **0.746**，4-class 绝对 CIP TSCV = 0.625。差距来自 CIP 优先级效应：同一 Evans-syn 产物，脂肪醛给 class 2 (60%)，芳香醛给 class 3 (37%)。醛 CIP 优先级特征帮助模型学习此映射。
+
+### 消融实验
+
+| 对比 | TSCV | 说明 |
+|------|------|------|
+| 128d 全特征 (ET) | **0.621** | V4c 冠军 (无 MechAware) |
+| MechAware-BW + chirality (XGB) | **0.625** | 总冠军 |
+| 84d 无手性 (XGB) | 0.507 | = V4 baseline |
+| 仅 7d 手性 (XGB) | 0.410 | 7 个特征已远超随机 |
+
+### 关键发现
+
+1. **辅基手性是关键缺失**: 加入 7d 手性特征后 condaux 从 0.243→0.450 (+85%)
+2. **ExtraTrees 超越 XGBoost**: ET (0.565) > XGB (0.551)，可能因为 120d 下 ET 的随机特征选择更抗过拟合
+3. **Scaffold 全面提升**: 0.454→0.513，手性特征帮助泛化到新骨架
+4. **Steric 仍是核心**: steronly_xgb (0.500) 仍远超 condaux (0.450)，3D 结构不可或缺
+
+### V3 → V4 数据变化说明
+
+V4 管线完全重建自 134K Reaxys 原始导出:
+- **管线可复现**: 12 步清洗 + 行级审计 (V3 的 134K→4751 步骤已丢失)
+- **范围扩展**: Evans → 6 种手性辅基 (排除手性催化)
+- **标签重提取**: CIP 从产物 SMILES 重新提取 (与 V3 有 61% 不一致 — V3 非金标准)
+- **DRFP 排除**: 确认产物 @/@@ 直接编码答案 → 标签泄漏
 
 ---
 
-## 泄漏检测 (2026-05-16)
+## 历史: V3 基准 (2026-05-16, 已被 V4 取代)
 
-### 1. DRFP 标签泄漏
-
-**机制**: DRFP (Differential Reaction Fingerprint) 对 `reactants >> product` SMILES 做 shingle 差集。产物 SMILES 中的 `@`/`@@` 标记直接编码了立体化学构型（即我们预测的标签）。DRFP 的 shingles 保留了这些标记，模型不需要学化学就能"看到答案"。
-
-**证据**: DRFP TSCV=0.87 远超其他模型（次好 0.73），且 DRFP fingerprint 对同一反应不同立体异构体产生完全不同的位模式。
-
-### 2. 旧划分 group_id 泄漏
-
-**机制**: 旧 `deduplicate.py` 用 `sorted([ketone, aldehyde])` 字母排序做去重 key，破坏了 ketone/aldehyde 角色区分。
-
-**证据**:
-| Split | 旧 group_id | 新 group_id (修复) | Delta |
-|-------|-------------|-------------------|-------|
-| Scaffold | 0.826 | 0.757 | **-6.9%** ⚠️ |
-| Grouped | 0.807 | 0.708 | **-9.8%** ⚠️ |
-| Temporal | 0.673 | 0.758 | +8.5% (不受影响) |
-
----
-
-## Key Findings
-
-1. **手工 3D 特征仍是最佳方法** — MechAware (151d) 包含 Z/E 烯醇盐分离 steric 描述符
-2. **Z/E 分离有效** — MechAware (+5.3% over V2-XGB TSCV) 验证了 Zimmerman-Traxler 机制建模价值
-3. **真实天花板 ~0.73** — 非旧报告的 ~0.83（有泄漏）
-4. **GNN/Transformer 全部失败** — 1655 样本不足以训练端到端模型
-5. **DRFP 看似强大实为泄漏** — 产物立体化学 @/@@ 被直接编码
-
----
-
-## Historical Results (Legacy, 仅供参考)
-
-> ⚠️ 以下基于旧数据 (1801行) + 旧划分（已确认 group_id 泄漏）。数字虚高。
-
-Top-5 historical (temporal split): V2-XGB 0.783, V2-Stack 0.782, V5-XGB 0.758, DRFP+Cond 0.711, ProtoNet 0.684
-
-详见 `archive/` 中的旧 RESULTS.md。
+V3 数据 (1655 Evans-only) 的结果见 `archive/` 目录。
+冠军为 MechAware-Full (TSCV=0.733)，但基于不可复现的数据管线。

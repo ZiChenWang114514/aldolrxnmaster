@@ -1,66 +1,72 @@
 # AldolRxnMaster
 
-Evans 不对称 aldol 反应 4-class 立体化学预测。
+基于底物控制（手性辅基）的 aldol 反应 4-class 立体化学预测。
 
-## 当前状态 (2026-05-16)
+## 当前状态 (2026-05-27)
 
-- **数据**: 1655 Evans reactions (V3 严格清洗, 从 4751 原始行)
-- **冠军**: **MechAware-Full** (151d), TSCV 4-fold mean bal_acc = **0.733 ± 0.074**
-- **方法**: 显式 Z/E 烯醇盐构象分离 + base-dependent 加权 + XGBoost
-- **泄漏已修复**: 旧 scaffold 0.826 确认有 group_id 泄漏 (真实 0.757); DRFP 0.87 有标签泄漏
-- **真实天花板**: ~0.73 (TSCV), ~0.74 (scaffold/grouped)
+- **数据**: V4 管线从 134K Reaxys 原始数据重建，2288 行（6 种辅基类型）
+- **辅基类型**: Evans (1636) + Crimmins thione (258) + Crimmins oxathione (139) + Oppolzer (137) + Other (104) + Myers (14)
+- **冠军**: **ma_bw_xgb** (156d), TSCV = **0.625 ± 0.040**, Grouped = **0.773 ± 0.024**
+- **特征**: Steric(34d) + Conditions(44d) + Auxiliary(6d) + Chirality(7d) + R-group(8d) + ChiralEnv(21d) + AldPriority(8d) = **128d**; MechAware BW(112d)/Full(328d) 可选叠加
+- **泄漏已排除**: DRFP 已确认标签泄漏（产物 @/@@ 编码答案），不再使用；手性特征仅从酮 SMILES 提取
+- **标签编码**: 4-class `label_joint = Ca × 2 + Cb`; 2-class `label_SA` TSCV=0.746
 
 ## 环境
 
 - **主环境**: `conda activate aldol-rxn` (Python 3.11)
-- 不要用其他环境
 
 ## 数据路径
 
 ```
 data/
-  raw/          原始 alldata.csv (4751 行)
-  clean/        evans_clean.csv (1655), non_evans_clean.csv (430)
-  features/     v3_features.csv (87d), labels.csv, condition_features.csv,
-                steric_features.csv, mechaware/{ketone,z,e}_steric.csv
-  splits/       tscv_fold{1-4}.json, scaffold.json, grouped_seed{42..1024}.json
-  interim/      中间产物 (调试用)
-  audit/        行级审计报告
+  data.csv            原始 Reaxys 导出 (134,027 行)
+  clean_v4/           V4 清洗数据
+    substrate_aldol_clean.csv  (2288 行, 38 列)
+    evans_clean.csv            (1636 行, Evans 子集)
+    labels.csv                 (4-class 标签)
+    condition_features.csv     (44d 条件特征)
+    audit/                     行级审计报告
+  features_v4/        V4 特征
+    v4_features.csv            (2288 × 128d 完整特征矩阵)
+    steric_features.csv        (34d 空间位阻特征)
+    labels.csv
+    conformers/                构象 pickle 缓存
+  splits_v4/          V4 划分
+    tscv_fold{1-4}.json        时间序列 CV
+    scaffold.json              Murcko 骨架划分
+    grouped_seed{42..1024}.json  role-aware 分组划分
+  raw/                (已归档到 archive/data_raw_v3/)
+  clean/              V3 清洗数据 (已被 V4 取代)
+  features/           V3 特征 (已被 V4 取代)
+  splits/             V3 划分 (已被 V4 取代)
 ```
 
 ## 脚本 (统一 run_*.py 命名)
 
 ```bash
-# MechAware 管线 (Z/E 构象 → steric → 模型)
-conda run -n aldol-rxn python scripts/run_mechaware_conformers.py
-conda run -n aldol-rxn python scripts/run_mechaware.py
+# V4 数据清洗 (12 步: 134K Reaxys → 2179 辅基 aldol)
+conda run -n aldol-rxn python scripts/run_rebuild_v4.py
 
-# V3 数据重建 (16 步全管线)
+# V4 特征工程 (构象 + steric + chirality + rgroup + chiralenv + aldpri → 128d)
+conda run -n aldol-rxn python scripts/run_features_v4.py
+
+# V4 数据划分 (TSCV + scaffold + grouped)
+conda run -n aldol-rxn python scripts/run_splits_v4.py
+
+# V4 模型基准 (11 models × 10 splits)
+conda run -n aldol-rxn python scripts/run_all_models_v4.py
+
+# (旧) V3 管线 — 仅 Evans, 已被 V4 取代
 conda run -n aldol-rxn python scripts/run_rebuild.py
-
-# 全部模型基准 (15 active models × 10 splits)
 conda run -n aldol-rxn python scripts/run_all_models_v3.py
-
-# 公平对比 (同数据同划分 + 泄漏检测)
-conda run -n aldol-rxn python scripts/run_comparison.py
-
-# ChiralAldol 原始管线
-conda run -n aldol-rxn python scripts/run_chiralaldol.py
 ```
 
 ## 约定
 
 - 脚本命名: `scripts/run_*.py`
-- Predictions: `results/predictions/{category}/{model_key}_{split}.csv`
-  - Categories: steric, fp, gnn, meta, baseline
+- Predictions: `results/predictions_v4/{category}/{model_key}_{split}.csv`
+  - Categories: v4b, mechaware, steric, ablation, baseline
   - CSV 格式: `idx, y_true, y_pred, prob_0, prob_1, prob_2, prob_3`
-- 模型注册: `MODEL_REGISTRY.md` (全部 47+ 模型含状态)
-- 4-class label: `label_joint = Ca * 2 + Cb`
-- 所有 split 用 V3 role-aware group_id (无泄漏)
+- 4-class label: `label_joint = Ca * 2 + Cb` (R=0, S=1)
+- 所有 split 用 V4 role-aware group_id (无泄漏)
 - 归档: `archive/` (旧数据/旧预测/废弃脚本)
-
-## 关键发现
-
-- Z/E 烯醇盐分离 steric 特征 (+5.3% TSCV vs V2)
-- DRFP 有标签泄漏 (产物 @/@@ 编码了答案)
-- 手工 3D 特征 >> GNN/Transformer/Fingerprint (在小数据量下)
