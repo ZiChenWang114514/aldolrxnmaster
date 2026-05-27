@@ -1,0 +1,63 @@
+# V3 原始项目迁移目录
+# 大文件和生成物忽略，只追踪代码/脚本/文档
+
+# 原始数据（大文件）
+*.csv
+*.pkl
+*.pt
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.parquet
+
+# 允许追踪小型 CSV（文档/示例）
+!examples/*.csv
+!docs/*.csv
+
+# 模型权重和 checkpoint
+*.pth
+*.ckpt
+*.joblib
+*.model
+*.bin
+
+# 日志
+*.log
+logs/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# 环境
+.env
+.venv/
+venv/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 大目录（如有）
+data/processed/
+data/raw/
+data/interim/
+external/
