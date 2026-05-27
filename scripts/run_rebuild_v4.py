@@ -24,6 +24,7 @@ from chiralaldol.rebuild_v4 import (
     step06_atom_mapping,
     step07_label_extract,
     step08_label_validate,
+    step08b_3d_synanti,
     step09_dedup,
     step10_conditions_extract,
     step11_conditions_engineer,
@@ -66,6 +67,9 @@ def main():
 
     # Step 08: Cross-validate labels
     df = step08_label_validate.run(df, audit)
+
+    # Step 08b: 3D dihedral-based syn/anti
+    df = step08b_3d_synanti.run(df, audit)
 
     # Step 09: Deduplication + group_id
     df = step09_dedup.run(df, audit)

@@ -1,5 +1,32 @@
 # Lessons Learned — AldolRxnMaster
 
+## L10: CIP R/S ≠ syn/anti — 绝对构型无法推断相对构型 (2026-05-27)
+
+**问题**: `label_SA = int(Ca==Cb)` 作为 syn/anti 启发式，准确率仅 ~52%（等同掷硬币）。基于 Ca CIP + 辅基构型的 `label_syn_anti` 同样不可靠（~52%）。
+**根因**: CIP R/S 是**绝对构型**（依赖取代基优先级规则），syn/anti 是**相对构型**（两个立体中心的空间关系）。同一 syn 产物在不同底物上可以是 (R,S) 或 (S,S)，因为：
+- **Cb CIP 翻转**: 芳香醛（如 PhCHO）使 Cb 的 CIP 优先级翻转（芳环 > 烷基链）
+- **Ca CIP 翻转**: 酮 α-取代基含杂原子（如 OBn, OTBS）时 Ca 的 CIP 优先级翻转
+- 两个中心的 CIP 码都不稳定，任何基于 CIP 推断 syn/anti 的组合都不可靠
+
+**实证数据** (2334 行 substrate-controlled aldol):
+- `label_SA` vs `label_syn_anti_3d` 一致率: **45.6%**（比随机还差，因为 CIP 翻转与 syn/anti 无关）
+- 二面角分布: 清晰双峰（~±60° gauche=syn, ~±180° anti-periplanar=anti）
+- 3D syn 比例: 62.6% syn / 36.1% anti / 1.3% 失败
+- Evans 子集: syn 63.4%（符合 Evans Z(O)-enolate Zimmerman-Traxler TS 预期）
+- 辅基分布: 所有 6 种辅基均有 syn/anti 清晰分离
+
+**迭代过程**:
+1. 第 1 轮: 尝试 `label_SA = int(Ca==Cb)` → 52% 准确率
+2. 第 2 轮: 尝试 Ca CIP + 辅基 4R/4S 构型(SMARTS `useChirality=True`) → 仍 52%
+3. 第 3 轮: 分析发现 Ca CIP 也会因取代基杂原子翻转 → 确认 CIP 路线不可行
+4. 第 4 轮(最终): 3D 二面角法 — ETKDGv3+MMFF 生成构象 → OH-Cb-Ca-C(=O) 二面角 → |θ|<90°=syn → **98.7% 成功率**
+
+**修复**: 新增 `step08b_3d_synanti.py`，删除 step08 中所有 `aux_config`/`label_syn_anti` 相关代码。输出 4 列: `label_syn_anti_3d`, `dihedral_oh_cb_ca_co`, `conformer_energy`, `synanti_confidence`。
+
+**教训推广**: 任何基于 CIP R/S 推断相对构型（syn/anti, endo/exo, cis/trans, E/Z）的方法都不可靠。CIP 优先级规则是人为约定（基于原子序数/质量），不反映空间关系。3D 坐标（二面角、距离）是确定相对构型的唯一正确途径。
+
+---
+
 ## L9: DRFP 标签泄漏 — 反应指纹对立体化学预测的陷阱 (2026-05-16)
 
 **问题**: DRFP TSCV=0.87 远超所有其他模型 (次好 0.73)。

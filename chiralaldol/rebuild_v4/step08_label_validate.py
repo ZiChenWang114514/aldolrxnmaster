@@ -29,6 +29,10 @@ def run(df: pd.DataFrame, audit: AuditTracker) -> pd.DataFrame:
 
         if has_cip and has_optical:
             # Cross-validate: CIP syn/anti vs optical syn/anti
+            # NOTE: This heuristic (Ca==Cb → syn) is known to be ~52% accurate.
+            # It is kept here only as a rough filter for the rare case when
+            # optical yield data IS available. True syn/anti is computed in step08b
+            # via 3D dihedral analysis.
             cip_is_syn = (int(cip_ca) == int(cip_cb))
             if cip_is_syn == bool(optical_syn):
                 label_ca_final.append(int(cip_ca))
@@ -50,7 +54,6 @@ def run(df: pd.DataFrame, audit: AuditTracker) -> pd.DataFrame:
 
         elif has_optical:
             # Only optical: can determine syn/anti but not absolute config
-            # Keep with low confidence — we know syn vs anti but not R/S
             label_ca_final.append(None)
             label_cb_final.append(None)
             label_confidence.append("low_optical_only")
@@ -68,6 +71,9 @@ def run(df: pd.DataFrame, audit: AuditTracker) -> pd.DataFrame:
     df["label_source"] = label_source
 
     # Compute derived labels where possible
+    # NOTE: label_SA = int(Ca==Cb) is NOT chemical syn/anti.
+    # It captures the Cb CIP priority-flip effect (aromatic vs aliphatic aldehyde).
+    # True syn/anti is computed in step08b via 3D dihedral analysis.
     df["label_SA"] = df.apply(
         lambda r: int(r["label_Ca"] == r["label_Cb"])
         if pd.notna(r["label_Ca"]) and pd.notna(r["label_Cb"]) else None,

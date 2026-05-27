@@ -78,7 +78,12 @@ def _detect_auxiliary(ketone_smi: str, product_smi: str, rxn_smi: str) -> str:
 
 
 def _has_chiral_catalyst(catalyst_str: str, reagent_str: str, named_rxn_str: str) -> bool:
-    """Check if reaction uses a chiral catalyst (should be excluded)."""
+    """Check if reaction uses a chiral catalyst (should be excluded).
+
+    NOTE: Pass named_rxn_str="" when calling on rows that already have a detected
+    structural auxiliary, to avoid over-exclusion of Mukaiyama-named substrate-
+    controlled reactions.
+    """
     combined = " ".join([
         str(catalyst_str) if pd.notna(catalyst_str) else "",
         str(reagent_str) if pd.notna(reagent_str) else "",
@@ -134,7 +139,7 @@ def run(df: pd.DataFrame, audit: AuditTracker) -> pd.DataFrame:
         lambda row: _has_chiral_catalyst(
             row.get(catalyst_col, "") if catalyst_col else "",
             row.get(reagent_col, "") if reagent_col else "",
-            row.get(named_col, "") if named_col else "",
+            "",  # 已有辅基结构证据；不再用命名反应排除（防止辅基控制的 Mukaiyama aldol 被误删）
         ),
         axis=1,
     )

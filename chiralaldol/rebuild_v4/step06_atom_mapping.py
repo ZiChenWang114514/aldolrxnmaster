@@ -13,9 +13,21 @@ from .utils import safe_mol
 logger = logging.getLogger("rebuild_v4.step06")
 
 # Product template: :1 = Cb (OH-bearing), :2 = Ca (alpha to C=O-N)
+# Order matters: aux-specific templates checked first; protected-OH added for failed mappings
 _PRODUCT_TEMPLATES_RAW = {
-    "aux": "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]",
-    "generic": "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])[CX3](=[OX1])",
+    # Free OH, amide (Evans/Crimmins/Myers)
+    "aux":            "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]",
+    # Free OH, generic carbonyl (Oppolzer sulfonamide etc.)
+    "generic":        "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])[CX3](=[OX1])",
+    # Silyl ether protection (TBS/TMS/TIPS): O-SiX4
+    "aux_silyl":      "[CX4:1]([OX2][SiX4])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]",
+    "generic_silyl":  "[CX4:1]([OX2][SiX4])([#6])[CX4:2]([#6])[CX3](=[OX1])",
+    # Benzyl ether protection (OBn/PMB): O-CH2-aryl or O-CH2-alkyl
+    "aux_bn":         "[CX4:1]([OX2][CH2][c,C])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]",
+    "generic_bn":     "[CX4:1]([OX2][CH2][c,C])([#6])[CX4:2]([#6])[CX3](=[OX1])",
+    # Acetal/MOM/THP ether: O-CX4-O (methoxymethyl, tetrahydropyranyl, etc.)
+    "aux_acetal":     "[CX4:1]([OX2][CX4][OX2])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]",
+    "generic_acetal": "[CX4:1]([OX2][CX4][OX2])([#6])[CX4:2]([#6])[CX3](=[OX1])",
 }
 
 # Pre-compile and find tagged atom positions
@@ -72,21 +84,50 @@ def _rxnmapper_map(rxn_smiles_list: list[str]) -> list[tuple[Optional[str], floa
 
 
 def _rxnmapper_locate_ca_cb(mapped_rxn: str, product_smi: str) -> Optional[tuple[int, int]]:
-    """From a mapped reaction, locate Ca/Cb in the product by tracing the new C-C bond."""
+    """From a mapped reaction, locate Ca/Cb in the product.
+
+    Strategy:
+    1. Try template matching on the mapped product SMILES (fast path, handles all OH forms).
+    2. If templates all fail, use a broad β-hydroxy carbonyl pattern that matches any
+       O-protected Cb adjacent to Ca with downstream carbonyl (last-resort fallback).
+    """
     if not mapped_rxn:
         return None
     try:
-        # Parse mapped product
         parts = mapped_rxn.split(">>")
         if len(parts) != 2:
             return None
 
-        prod_mol = Chem.MolFromSmiles(parts[1])
+        mapped_prod_smi = parts[1]
+
+        # Step 1: template matching on the atom-mapped product SMILES
+        result = _template_locate_ca_cb(mapped_prod_smi)
+        if result is not None:
+            return result
+
+        # Step 2: broad fallback — any O-substituted Cb adjacent to Ca with C=O
+        prod_mol = Chem.MolFromSmiles(mapped_prod_smi)
         if prod_mol is None:
             return None
-
-        # Fall back to template matching on the mapped product
-        return _template_locate_ca_cb(parts[1])
+        # [CX4](O-anything)(carbon) - [CX4](carbon) - C=O  — very permissive
+        broad_pat = Chem.MolFromSmarts("[CX4:1]([OX2])([#6])[CX4:2]([#6])[CX3](=[OX1])")
+        if broad_pat:
+            matches = prod_mol.GetSubstructMatches(broad_pat)
+            if matches:
+                # :1 = query position 0 (Cb), :2 = query position 3 (Ca)
+                # Identify query atom positions by map number
+                cb_q, ca_q = None, None
+                for qi in range(broad_pat.GetNumAtoms()):
+                    mn = broad_pat.GetAtomWithIdx(qi).GetAtomMapNum()
+                    if mn == 1:
+                        cb_q = qi
+                    elif mn == 2:
+                        ca_q = qi
+                if cb_q is not None and ca_q is not None:
+                    cb_idx = matches[0][cb_q]
+                    ca_idx = matches[0][ca_q]
+                    return ca_idx, cb_idx
+        return None
     except Exception:
         return None
 

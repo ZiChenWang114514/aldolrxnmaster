@@ -3,78 +3,65 @@
 ```
 aldolrxnmaster/
 ├── CLAUDE.md                  项目规范 (当前状态, 命名约定)
-├── RESULTS.md                 V3 公平基准结果
-├── MODEL_REGISTRY.md          47+ 模型注册表 (key, 状态, 指标)
-├── LESSONS.md                 开发教训 (bug 修复经验)
+├── RESULTS.md                 V4 基准结果
+├── MODEL_REGISTRY.md          模型注册表
+├── LESSONS.md                 开发教训
 ├── TODO.md                    路线图
 │
 ├── data/
-│   ├── raw/                   原始数据 (alldata.csv, evans_aux*.csv)
-│   ├── clean/                 清洗后数据
-│   │   ├── evans_clean.csv    1655 Evans reactions (V3)
-│   │   └── non_evans_clean.csv 430 non-Evans
-│   ├── features/              特征文件
-│   │   ├── v3_features.csv    87d 完整特征矩阵
-│   │   ├── labels.csv         4-class 标签
-│   │   ├── condition_features.csv  44d 条件特征
-│   │   ├── steric_features.csv     24d 烯醇盐 steric
-│   │   ├── aldehyde_steric.csv     10d 醛 steric
-│   │   ├── feature_manifest.json   特征清单
-│   │   └── mechaware/              MechAware Z/E 特征
-│   │       ├── ketone_steric.csv   24d 酮式 steric
-│   │       ├── z_enolate_steric.csv 24d Z-烯醇盐 steric
-│   │       └── e_enolate_steric.csv 24d E-烯醇盐 steric
-│   ├── splits/                数据划分 (JSON indices)
-│   │   ├── tscv_fold{1-4}.json    4-fold temporal CV
-│   │   ├── scaffold.json          Murcko scaffold split
-│   │   └── grouped_seed*.json     5 grouped random splits
-│   ├── interim/               中间产物 (调试用)
-│   └── audit/                 行级审计报告
+│   ├── data.csv               原始 Reaxys 导出 (134,027 行, 41 列)
+│   ├── clean_v4/              V4 清洗数据 (当前)
+│   │   ├── substrate_aldol_clean.csv  2179 行, 5 种辅基, 38 列
+│   │   ├── evans_clean.csv            1636 Evans 子集
+│   │   ├── labels.csv                 4-class 标签
+│   │   ├── condition_features.csv     44d 条件特征
+│   │   └── audit/                     行级审计 + 步骤摘要
+│   ├── features_v4/           V4 特征 (当前)
+│   │   ├── v4_features.csv    2179 × 84d 完整特征矩阵
+│   │   ├── steric_features.csv  34d steric
+│   │   ├── labels.csv
+│   │   ├── feature_manifest.json
+│   │   └── conformers/        构象 pickle 缓存
+│   ├── splits_v4/             V4 划分 (当前)
+│   │   ├── tscv_fold{1-4}.json
+│   │   ├── scaffold.json
+│   │   └── grouped_seed{42,123,456,789,1024}.json
+│   ├── raw/                   (已归档)
+│   ├── clean/                 V3 清洗数据 (已被 V4 取代)
+│   ├── features/              V3 特征 (已被 V4 取代)
+│   └── splits/                V3 划分 (已被 V4 取代)
 │
-├── scripts/                   所有可执行脚本 (统一 run_*.py)
-│   ├── run_rebuild.py         V3 16步数据重建管线
-│   ├── run_mechaware_conformers.py  Z/E 构象生成
-│   ├── run_mechaware.py       MechAware 模型训练
-│   ├── run_all_models_v3.py   统一基准 (15 models × 10 splits)
-│   ├── run_comparison.py      公平对比 + 泄漏检测
-│   ├── run_chiralaldol.py     ChiralAldol 完整管线
-│   └── run_tscv.py            时序交叉验证
+├── scripts/
+│   ├── run_rebuild_v4.py      V4 12 步数据清洗 (134K → 2179)
+│   ├── run_features_v4.py     V4 特征工程 (构象+steric+整合)
+│   ├── run_splits_v4.py       V4 数据划分 (TSCV+scaffold+grouped)
+│   ├── run_all_models_v4.py   V4 基准 (11 models × 10 splits)
+│   ├── run_rebuild.py         V3 管线 (已取代)
+│   ├── run_all_models_v3.py   V3 基准 (已取代)
+│   └── ...                    其他旧脚本
 │
-├── chiralaldol/               ChiralAldol 核心方法
-│   ├── enolate_generator.py   酮 → 烯醇盐转换
-│   ├── ze_enolate_generator.py Z/E 烯醇盐 + 3D构象生成
-│   ├── conformer_sampler.py   构象系综采样
+├── chiralaldol/
+│   ├── rebuild_v4/            V4 数据清洗管线 (12 步)
+│   │   ├── constants.py       SMARTS, 溶剂 DB, 金属, 辅基催化排除
+│   │   ├── audit.py           AuditTracker 类
+│   │   ├── utils.py           SMILES 解析, 数值字段处理
+│   │   └── step{01-12}_*.py   12 步管线模块
+│   ├── rebuild/               V3 管线 (已取代)
 │   ├── steric_descriptors.py  %Vbur + Sterimol + 二面角 (24d)
 │   ├── aldehyde_steric.py     醛 steric (10d)
-│   ├── feature_builder.py     V1-V5 特征组装
-│   ├── solvent_lookup.py      溶剂推断 + KT 参数
-│   ├── gnn/                   GNN 模块 (deprecated)
-│   └── rebuild/               V3 16步重建管线模块
-│       └── step00-16*.py
-│
-├── src/aldolrxnmaster/        核心包
-│   ├── data/                  数据清洗 7步管线 (legacy)
-│   ├── features/              特征计算
-│   └── evaluation/            评估指标 (compute_all_metrics)
+│   └── ...
 │
 ├── results/
-│   ├── predictions/           模型预测 (按类别分目录)
-│   │   ├── steric/            ChiralAldol + MechAware
-│   │   ├── fp/                指纹模型 (含泄漏标注)
-│   │   ├── gnn/               GNN (deprecated)
-│   │   ├── meta/              ProtoNet
-│   │   └── baseline/          基线模型
-│   └── tables/                汇总表 CSV
+│   ├── predictions_v4/        V4 预测结果
+│   │   ├── steric/            full_xgb, full_lgbm, full_et, full_rf, steronly_xgb
+│   │   └── baseline/          cond_xgb, condaux_xgb, condaux_lgbm, knn_1, knn_5, majority
+│   ├── tables/
+│   │   └── benchmark_v4.csv   V4 基准汇总
+│   └── predictions/           V3 预测结果 (已取代)
 │
-├── archive/                   归档 (旧数据/旧预测/废弃脚本)
-│   ├── data_processed/        旧 data/processed/ 全部内容
-│   ├── predictions_legacy/    旧命名的 161 个 CSV
-│   └── scripts_deprecated/    废弃脚本
+├── archive/                   归档
+│   ├── data_raw_v3/           V3 原始 alldata.csv 备份
+│   └── ...
 │
-├── external/                  外部依赖
-│   ├── drfp/                  DRFP 指纹 (⚠️ 有泄漏)
-│   └── rxnfp/                 RXNFP 指纹
-│
-└── notebooks/                 分析笔记本
-    └── 02_shap_analysis/      SHAP + 误差分析
+└── tests/                     单元测试
 ```

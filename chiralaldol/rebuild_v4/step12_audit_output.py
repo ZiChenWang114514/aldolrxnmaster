@@ -28,6 +28,8 @@ CLEAN_COLUMNS = [
     # Labels
     "label_Ca", "label_Cb", "label_SA", "label_joint",
     "label_confidence", "label_source",
+    # 3D dihedral-based syn/anti (from step08b)
+    "label_syn_anti_3d", "dihedral_oh_cb_ca_co", "conformer_energy", "synanti_confidence",
     # Conditions (raw)
     "temperature_c", "time_h", "pressure_torr", "yield_pct",
     "solvent_name", "metal", "base_type", "activator_type",
@@ -66,7 +68,8 @@ def run(df: pd.DataFrame, feat_df: pd.DataFrame, audit: AuditTracker) -> None:
 
     # --- Labels ---
     label_cols = ["label_Ca", "label_Cb", "label_SA", "label_joint",
-                  "label_confidence", "label_source"]
+                  "label_confidence", "label_source",
+                  "label_syn_anti_3d", "dihedral_oh_cb_ca_co", "synanti_confidence"]
     labels = df[[c for c in label_cols if c in df.columns]].copy()
     labels.to_csv(CLEAN_V4_DIR / "labels.csv", index=False)
 
