@@ -26,6 +26,9 @@ FEAT_DIR = PROJECT / "data" / "features_v4"
 SPLITS_DIR = PROJECT / "data" / "splits_v4"
 PRED_DIR = PROJECT / "results" / "predictions_v4"
 
+# Target label: "label_joint" (RS-RS, 4-class CIP) or "label_joint_sa" (RS-SynAnti, 4-class)
+TARGET_LABEL = "label_joint_sa"
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("benchmark_v4")
 
@@ -98,14 +101,25 @@ class MajorityClassifier:
 # ═══════════════════════════ FEATURE LOADERS ═══════════════════════════
 
 def _load_all_features():
-    """Load V4 features and labels. Returns (X, y, feature_names)."""
+    """Load V4 features and labels. Returns (X, y, feature_names, valid_mask)."""
     X_df = pd.read_csv(FEAT_DIR / "v4_features.csv")
     labels = pd.read_csv(FEAT_DIR / "labels.csv")
-    y = labels["label_joint"].astype(int).values
+
+    if TARGET_LABEL not in labels.columns:
+        raise ValueError(f"Target label '{TARGET_LABEL}' not in labels.csv. "
+                         f"Available: {labels.columns.tolist()}")
+
+    # For label_joint_sa, some rows have NaN (3D syn/anti failed)
+    valid_mask = labels[TARGET_LABEL].notna().values
+    n_invalid = (~valid_mask).sum()
+    if n_invalid > 0:
+        logger.info(f"  Filtering {n_invalid} rows with NaN in {TARGET_LABEL}")
+
+    y_full = labels[TARGET_LABEL].values  # may contain NaN
     feature_names = list(X_df.columns)
     X = X_df.values.astype(np.float32)
     np.nan_to_num(X, copy=False)
-    return X, y, feature_names
+    return X, y_full, feature_names, valid_mask
 
 
 def load_full(X, y, feat_names):
@@ -212,11 +226,17 @@ def main():
     logger.info("=" * 70)
 
     # Load features and labels
-    X_all, y, feat_names = _load_all_features()
-    n = len(y)
-    n_classes = len(np.unique(y))
-    logger.info(f"Data: {n} rows, {X_all.shape[1]} features, {n_classes} classes")
-    logger.info(f"Label dist: {dict(zip(*np.unique(y, return_counts=True)))}")
+    X_all, y_full, feat_names, valid_mask = _load_all_features()
+    logger.info(f"Target: {TARGET_LABEL}")
+    logger.info(f"Data: {len(y_full)} total rows, {valid_mask.sum()} valid, {X_all.shape[1]} features")
+
+    # Build index mapping: valid rows only
+    valid_indices = set(np.where(valid_mask)[0])
+    y = y_full.copy()
+    y[~valid_mask] = -1  # placeholder for invalid rows
+    y = y.astype(int)
+    n_classes = len(np.unique(y[valid_mask]))
+    logger.info(f"Classes: {n_classes}, dist: {dict(zip(*np.unique(y[valid_mask], return_counts=True)))}")
 
     # Load splits
     split_files = sorted(SPLITS_DIR.glob("*.json"))
@@ -254,13 +274,14 @@ def main():
         X = feat_loader(X_all, y, feat_names)
         logger.info(f"  Features: {X.shape[1]}d")
 
-        out_dir = PRED_DIR / category
+        sa_suffix = "sa_" if TARGET_LABEL == "label_joint_sa" else ""
+        out_dir = PRED_DIR / f"{sa_suffix}{category}"
         out_dir.mkdir(parents=True, exist_ok=True)
 
         for split_name, split_data in splits.items():
-            tr = np.array(split_data["train"], dtype=int)
-            va = np.array(split_data.get("val", []), dtype=int)
-            te = np.array(split_data["test"], dtype=int)
+            tr = np.array([i for i in split_data["train"] if i in valid_indices], dtype=int)
+            va = np.array([i for i in split_data.get("val", []) if i in valid_indices], dtype=int)
+            te = np.array([i for i in split_data["test"] if i in valid_indices], dtype=int)
 
             if len(va) == 0:
                 va = tr[-max(1, len(tr) // 10):]
@@ -311,7 +332,8 @@ def main():
 
     # Save results table
     results_df = pd.DataFrame(all_results)
-    table_path = PROJECT / "results" / "tables" / "benchmark_v4.csv"
+    suffix = "_sa" if TARGET_LABEL == "label_joint_sa" else ""
+    table_path = PROJECT / "results" / "tables" / f"benchmark_v4{suffix}.csv"
     table_path.parent.mkdir(parents=True, exist_ok=True)
     results_df.to_csv(table_path, index=False)
     logger.info(f"\nSaved results to {table_path}")
