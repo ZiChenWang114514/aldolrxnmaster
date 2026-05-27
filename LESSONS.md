@@ -27,6 +27,29 @@
 
 ---
 
+## L11: V3 KNN 多数类崩溃 — 类不平衡下近邻投票必须加权 (2026-05-27)
+
+**问题**: V3 KNN 预测器在 200 行测试集上 balanced accuracy = 0.415，尽管表面 accuracy = 71%。
+**根因**: 相似度加权投票中，多数类（RR=85行, SS=86行）因数量优势始终获胜；RS=16行和 SR=13行的投票权重被淹没。`class 1 (RS) recall = 0.00，class 2 (SR) recall = 0.00`。
+**实证**: 运行原始 `aldol_prediction_results_transformer.csv` 评估，模型只输出 class 0 (88次) 和 class 3 (112次)，从不预测 RS/SR。
+**修复**: 在 KNN 投票中按 1/class_frequency 加权（即 class_weight='balanced'）。
+**教训**: 任何多类别不平衡任务（任一类 <15%）必须在预测时加权；accuracy 数字具有极大误导性，必须配合 balanced accuracy 报告。
+
+## L12: 随机 Split 高估化学数据性能 — 时序 CV 是金标准 (2026-05-27)
+
+**问题**: V3 报告 71% 准确率（random 80/20），但时序评估（TSCV）会更低。
+**根因**: 化学文献数据库按时间积累，早期和近期反应的底物结构存在相关性。随机 split 将 1964-2023 年的数据混合，允许模型"看到未来"的类似结构。
+**量化**: V4 random split 比 TSCV 约高 0.05-0.10（从 V4c random ~0.70 vs TSCV 0.625 可见）。
+**修复**: TSCV（按 Year 排序，测试集始终在训练集之后）是化学数据库的正确评估方式。
+**教训**: 发表化学 ML 论文必须报告时序 CV；random split 是必要基线但不应作为主要指标。
+
+## L13: balanced accuracy 才是多类别不平衡的真实指标 (2026-05-27)
+
+**问题**: V3 71% accuracy 看似不错，但 balanced acc = 0.415（接近随机 0.25）。
+**原因**: 4-class 中两个多数类（RR+SS 各约 43%），全猜多数类可达 86% accuracy；balanced acc = 各类 recall 的算术平均，不受类不平衡影响。
+**计算方式**: `balanced_accuracy_score = mean([recall_class_0, recall_class_1, recall_class_2, recall_class_3])`
+**推广**: 任何含 class 不平衡的分类任务，一律报告 balanced accuracy（macro recall），不只报告 accuracy。V4 整个 benchmark 均使用 balanced accuracy。
+
 ## L9: DRFP 标签泄漏 — 反应指纹对立体化学预测的陷阱 (2026-05-16)
 
 **问题**: DRFP TSCV=0.87 远超所有其他模型 (次好 0.73)。
