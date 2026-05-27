@@ -64,29 +64,36 @@ _ALPHA_PATS = [Chem.MolFromSmarts(s) for s in _ALPHA_SMARTS_LIST]
 
 
 def generate_conformers(smiles_list: list[str], label: str) -> dict[str, dict]:
-    """Generate conformer ensembles for unique SMILES, with caching."""
+    """Generate conformer ensembles for unique SMILES, with incremental caching."""
     cache_path = CONF_DIR / f"{label}_conformers.pkl"
+    ensembles = {}
     if cache_path.exists():
         print(f"  Loading cached {label} conformers from {cache_path}")
         with open(cache_path, "rb") as f:
-            return pickle.load(f)
+            ensembles = pickle.load(f)
 
     unique_smiles = sorted(set(s for s in smiles_list if isinstance(s, str) and s.strip()))
-    print(f"  Generating {label} conformers for {len(unique_smiles)} unique SMILES...")
+    missing = [s for s in unique_smiles if s not in ensembles]
+
+    if not missing:
+        print(f"  {label}: all {len(unique_smiles)} SMILES cached, skipping generation")
+        return ensembles
+
+    print(f"  Generating {label} conformers for {len(missing)} new SMILES ({len(ensembles)} cached)...")
 
     from multiprocessing import Pool
-    args = [(smi, TIMEOUT_SEC) for smi in unique_smiles]
+    args = [(smi, TIMEOUT_SEC) for smi in missing]
     with Pool(8) as pool:
         results = pool.map(_worker_fn, args)
 
-    ensembles = {}
-    n_ok = 0
-    for smi, result in zip(unique_smiles, results):
+    n_new = 0
+    for smi, result in zip(missing, results):
         if result is not None:
             ensembles[smi] = result
-            n_ok += 1
+            n_new += 1
 
-    print(f"  {label}: {n_ok}/{len(unique_smiles)} conformer ensembles generated")
+    n_ok = sum(1 for s in unique_smiles if s in ensembles)
+    print(f"  {label}: {n_ok}/{len(unique_smiles)} total ({n_new} newly generated)")
 
     with open(cache_path, "wb") as f:
         pickle.dump(ensembles, f)
