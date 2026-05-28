@@ -2,7 +2,7 @@
 
 > **用途**：对 `sota_stereo_prediction_2022_2026.md` 中每一篇文献，使用本 prompt 驱动 agent 逐篇深度分析，提取对本项目的具体可操作启示。
 >
-> **使用方式**：将本 prompt 与目标论文 PDF/全文一起送入 agent。每篇论文独立分析，输出存入 `literature/analysis/[编号]_[短标题].md`。
+> **使用方式**：将本 prompt 与目标论文 PDF（任意命名）一起送入 agent。agent 会先完成文件重命名，再输出结构化分析。
 
 ---
 
@@ -33,7 +33,65 @@
 
 ## 分析任务
 
-你将收到一篇已发表论文（PDF 或全文）。请按以下结构输出详细分析，不得遗漏任何小节。
+你将收到一篇已发表论文（PDF，文件名可能是随意命名的）。**请严格按以下顺序执行，不得跳过任何步骤。**
+
+---
+
+### 步骤 0：文件重命名（必须最先执行）
+
+在做任何分析之前，先从论文中读取基本信息，生成规范化文件名，并完成重命名。
+
+**命名规则**：`YYYY-JournalAbbrev-keyword1-keyword2[-keyword3].pdf`
+
+- `YYYY`：发表年份（4位整数）
+- `JournalAbbrev`：期刊缩写，严格使用下表：
+
+| 期刊全名 | 缩写 |
+|---------|------|
+| Journal of the American Chemical Society | JACS |
+| Nature Communications | NatCommun |
+| Nature Computational Science | NatCompSci |
+| Nature Machine Intelligence | NatMachIntell |
+| Nature Chemical Biology | NatChemBiol |
+| Nature Synthesis | NatSynth |
+| ACS Central Science | ACSCentSci |
+| ACS Catalysis | ACSCatal |
+| Chemical Science | ChemSci |
+| Angewandte Chemie International Edition | AngewChem |
+| Journal of Chemical Information and Modeling | JCIM |
+| Journal of Cheminformatics | JCheminform |
+| Scientific Reports | SciRep |
+| Chemical Communications | ChemCommun |
+| Organic Letters | OrgLett |
+| Journal of Organic Chemistry | JOrgChem |
+| CCS Chemistry | CCSChem |
+| iScience | iScience |
+| Molecules | Molecules |
+| 其他期刊 | 取前两词首字母大写，去空格（如 *Digital Discovery* → DigDisc） |
+
+- `keyword1-keyword2`：从论文**标题**中提取 2-3 个最有区分度的英文词（小写，连字符分隔），代表方法或任务核心（如 `glycosylation-stereoselectivity`、`meta-learning-selectivity`、`chirality-transformer`）
+- 若为 arXiv preprint，`JournalAbbrev` 写 `arXiv`
+
+**示例**：
+- 原文件名 `download (3).pdf` → `2021-ChemSci-glycosylation-stereoselectivity.pdf`
+- 原文件名 `1234abcd.pdf` → `2025-JACS-anomeric-selectivity-ML.pdf`
+- 原文件名 `论文.pdf` → `2024-JCIM-stereoisomers-ML-pitfalls.pdf`
+
+**执行**：
+```bash
+mv "[原始文件名]" "literature/pdfs/[新文件名]"
+```
+若 `literature/pdfs/` 目录不存在，先创建：`mkdir -p literature/pdfs`
+
+**在分析输出的最开头明确写出：**
+> `原始文件名：xxx.pdf → 重命名为：YYYY-JournalAbbrev-keyword.pdf`
+
+---
+
+### 步骤 1-9：结构化分析
+
+完成重命名后，按以下9节输出分析。输出文件命名与 PDF 保持一致：
+`literature/analysis/YYYY-JournalAbbrev-keyword1-keyword2.md`（去掉 `.pdf` 后缀）
 
 ---
 
@@ -44,6 +102,7 @@
 | 标题 | |
 | 作者（第一/通讯）| |
 | 期刊 / 年份 / DOI | |
+| 规范化文件名 | `YYYY-JournalAbbrev-keyword.pdf` |
 | 开源代码/数据 | 是/否，链接 |
 
 ---
@@ -171,7 +230,8 @@
 
 ## 输出格式说明
 
-- 输出文件保存至 `literature/analysis/[编号]_[4-6字英文短标题].md`
+- **PDF 重命名**：`literature/pdfs/YYYY-JournalAbbrev-keyword1-keyword2.pdf`（步骤0，最先执行）
+- **分析文件**：`literature/analysis/YYYY-JournalAbbrev-keyword1-keyword2.md`（与 PDF 同名，去后缀）
 - 所有章节必须填写，无内容写"不适用，原因：……"
 - 数字/模型/特征名称用反引号标注
 - 建议章节（§7）是最重要的输出，必须有≥3条具体、可执行的建议
@@ -179,4 +239,4 @@
 
 ---
 
-*Prompt version: 2026-05-28 | Project: AldolRxnMaster | Target: Evans/Crimmins 4-class stereo prediction*
+*Prompt version: 2026-05-28 v2 | Project: AldolRxnMaster | Target: Evans/Crimmins 4-class stereo prediction*
