@@ -55,7 +55,7 @@
 
 ---
 
-### [A+] ScopeMap: An AI-Assisted, Human-in-the-Loop Workflow for Mapping Reaction Scope and Boundaries *(含仿生醛醇体系验证)*
+### [3] ScopeMap: An AI-Assisted, Human-in-the-Loop Workflow for Mapping Reaction Scope and Boundaries *(含仿生醛醇体系验证)*
 
 - **作者**: Jiawei Li et al.
 - **期刊**: *Angewandte Chemie International Edition*, 2026 (May 8, online first)
@@ -68,7 +68,7 @@
 
 ---
 
-### [3] Artificial Intelligence for Predicting Stereoselectivity in Glycosylation Chemistry
+### [4] Artificial Intelligence for Predicting Stereoselectivity in Glycosylation Chemistry
 
 - **作者**: Junjie Fu et al.
 - **期刊**: *CCS Chemistry*, 2025/2026 (online 2025-12-18)
@@ -84,7 +84,7 @@
 <a name="section2"></a>
 ## 2. 不对称催化立体选择性预测（对映选择性）
 
-### [4] Enantioselectivity prediction of pallada-electrocatalysed C–H activation using transition state knowledge in machine learning
+### [5] Enantioselectivity prediction of pallada-electrocatalysed C–H activation using transition state knowledge in machine learning
 
 - **作者**: Li-Cheng Xu, Johanna Frey, Xiaoyan Hou, Shuo-Qing Zhang et al. (Xin Hong / Lutz Ackermann)
 - **期刊**: *Nature Synthesis*, 2023, **2**, 321–330
@@ -97,7 +97,7 @@
 
 ---
 
-### [5] Data Science Enables the Development of a New Class of Chiral Phosphoric Acid Catalysts
+### [6] Data Science Enables the Development of a New Class of Chiral Phosphoric Acid Catalysts
 
 - **作者**: Jordan P. Liles, Caroline Rouget-Virbel et al. (F. Dean Toste, Matthew S. Sigman)
 - **期刊**: *Chem* (Cell Press), 2023, Vol. 9, Issue 6, 1518–1537
@@ -110,7 +110,7 @@
 
 ---
 
-### [6] A Data-Driven Workflow for Assigning and Predicting Generality in Asymmetric Catalysis
+### [7] A Data-Driven Workflow for Assigning and Predicting Generality in Asymmetric Catalysis
 
 - **作者**: Isaiah O. Betinol, Junshan Lai, Saumya Thakur, Jolene P. Reid (University of British Columbia)
 - **期刊**: *Journal of the American Chemical Society*, 2023, **145**(23), 12870–12883
@@ -123,7 +123,7 @@
 
 ---
 
-### [7] Feed-Forward Neural Network for Predicting Enantioselectivity of the Asymmetric Negishi Reaction
+### [8] Feed-Forward Neural Network for Predicting Enantioselectivity of the Asymmetric Negishi Reaction
 
 - **作者**: Abbigayle E. Cuomo et al. (Victor S. Batista, Timothy R. Newhouse, Yale / Boehringer Ingelheim)
 - **期刊**: *ACS Central Science*, 2023, **9**(9), 1768–1774
@@ -136,7 +136,7 @@
 
 ---
 
-### [8] Predicting Highly Enantioselective Catalysts Using Tunable Fragment Descriptors
+### [9] Predicting Highly Enantioselective Catalysts Using Tunable Fragment Descriptors
 
 - **作者**: Nobuya Tsuji, Pavel Sidorov, Chendan Zhu, Yuuya Nagata, Timur Gimadiev, Alexandre Varnek, Benjamin List (Max-Planck + Strasbourg)
 - **期刊**: *Angewandte Chemie International Edition*, 2023, **62**(11), e202218659
@@ -149,7 +149,7 @@
 
 ---
 
-### [9] Predicting the stereoselectivity of chemical reactions by composite machine learning method
+### [10] Predicting the stereoselectivity of chemical reactions by composite machine learning method
 
 - **作者**: Jihoon Chung, Justin Li, Amirul Islam Saimon, Pengyu Hong, Zhenwo Kong
 - **期刊**: *Scientific Reports*, 2024 (May 27)
@@ -162,7 +162,7 @@
 
 ---
 
-### [10] A meta-learning approach for selectivity prediction in asymmetric catalysis
+### [11] A meta-learning approach for selectivity prediction in asymmetric catalysis
 
 - **作者**: Sukriti Singh, José Miguel Hernández-Lobato (Cambridge)
 - **期刊**: *Nature Communications*, 2025, **16**, 3599
@@ -175,7 +175,7 @@
 
 ---
 
-### [11] Data Science Guided Multiobjective Optimization of a Stereoconvergent Nickel-Catalyzed Reduction
+### [12] Data Science Guided Multiobjective Optimization of a Stereoconvergent Nickel-Catalyzed Reduction
 
 - **作者**: N. P. Romer, D. S. Min, J. Y. Wang et al. (A. G. Doyle, M. S. Sigman / Genentech)
 - **期刊**: *ACS Catalysis*, 2024, **14**(7), 4699–4708
@@ -188,7 +188,7 @@
 
 ---
 
-### [12] Machine Learning Algorithm Guides Catalyst Choices for Magnesium-Catalyzed Asymmetric Reactions
+### [13] Machine Learning Algorithm Guides Catalyst Choices for Magnesium-Catalyzed Asymmetric Reactions
 
 - **作者**: Baczewska M., Roszak R., Grzybowski B.A., Mlynarski J. (Polish Academy of Sciences)
 - **期刊**: *Angewandte Chemie International Edition*, 2024, e202318487
@@ -201,7 +201,7 @@
 
 ---
 
-### [13] Chemistry-informed deep learning model for predicting stereoselectivity and absolute configuration in asymmetric hydrogenation
+### [14] Chemistry-informed deep learning model for predicting stereoselectivity and absolute configuration in asymmetric hydrogenation
 
 - **作者**: Li Cheng et al. (Pan-Lin Shao / Bo Zhang / Guichuan Xing, SUSTech + UM + GZHMU)
 - **期刊**: *Nature Computational Science*, 2025/2026, **6**, 145–155
@@ -214,7 +214,7 @@
 
 ---
 
-### [14] Probing machine learning models based on high throughput experimentation data for the discovery of asymmetric hydrogenation catalysts
+### [15] Probing machine learning models based on high throughput experimentation data for the discovery of asymmetric hydrogenation catalysts
 
 - **作者**: Adarsh V. Kalikadien et al. (Laurent Lefort, Evgeny A. Pidko / TU Delft + Janssen)
 - **期刊**: *Chemical Science* (RSC), 2024
@@ -227,7 +227,7 @@
 
 ---
 
-### [15] Data-Driven Prediction of Enantioselectivity for the Sharpless Asymmetric Dihydroxylation: Model Development and Experimental Validation
+### [16] Data-Driven Prediction of Enantioselectivity for the Sharpless Asymmetric Dihydroxylation: Model Development and Experimental Validation
 
 - **作者**: Blake E. Ocampo, Bilal Altundas, Matthew J. Bock, Sara Feiz, Scott E. Denmark (UIUC)
 - **期刊**: *ACS Central Science*, 2025, **11**(9), 1640–1650
@@ -240,7 +240,7 @@
 
 ---
 
-### [16+] Connecting the complexity of stereoselective synthesis to the evolution of predictive tools *(重要综述)*
+### [17] Connecting the complexity of stereoselective synthesis to the evolution of predictive tools *(重要综述)*
 
 - **作者**: Jiajing Li et al.
 - **期刊**: *Chemical Science* (RSC), 2025, **16**(9), 3832–3851
@@ -252,7 +252,7 @@
 
 ---
 
-### [16++] Leveraging Limited Experimental Data with Machine Learning: CBS Reduction
+### [18] Leveraging Limited Experimental Data with Machine Learning: CBS Reduction
 
 - **作者**: Oliver Pereira et al.
 - **期刊**: *Journal of the American Chemical Society*, 2024, **146**(21), 14576–14586
@@ -265,7 +265,7 @@
 
 ---
 
-### [16+++] Bayesian Meta-Learning for Few-Shot Reaction Outcome Prediction of Asymmetric Hydrogenation
+### [19] Bayesian Meta-Learning for Few-Shot Reaction Outcome Prediction of Asymmetric Hydrogenation
 
 - **作者**: Sukriti Singh, José Miguel Hernández-Lobato (Cambridge)
 - **期刊**: *Angewandte Chemie International Edition*, 2025, **64**(27), e202503821
@@ -278,7 +278,7 @@
 
 ---
 
-### [16++++] Generality-Driven Optimization of Enantio- and Regioselective Mono-Reduction
+### [20] Generality-Driven Optimization of Enantio- and Regioselective Mono-Reduction
 
 - **作者**: Terim Seo et al.
 - **期刊**: *Angewandte Chemie International Edition*, 2026, **65**(1), e202519425
@@ -291,7 +291,7 @@
 
 ---
 
-### [16] Evaluating Predictive Accuracy in Asymmetric Catalysis: A Machine Learning Perspective on Local Reaction Space
+### [21] Evaluating Predictive Accuracy in Asymmetric Catalysis: A Machine Learning Perspective on Local Reaction Space
 
 - **作者**: Isaiah O. Betinol et al. (Jolene P. Reid, UBC)
 - **期刊**: *ACS Catalysis*, 2025, **15**(8), 6067–6077
@@ -304,7 +304,7 @@
 
 ---
 
-### [17] Machine learning-assisted amidase-catalytic enantioselectivity prediction and rational design of variants
+### [22] Machine learning-assisted amidase-catalytic enantioselectivity prediction and rational design of variants
 
 - **作者**: Zi-Lin Li et al. (De-Xian Wang, Yu-Fei Ao, Chinese Academy of Sciences)
 - **期刊**: *Nature Communications*, 2024 (Oct. 10)
@@ -317,7 +317,7 @@
 
 ---
 
-### [18] Deep learning for enantioselectivity predictions in catalytic asymmetric β-C–H bond activation reactions
+### [23] Deep learning for enantioselectivity predictions in catalytic asymmetric β-C–H bond activation reactions
 
 - **作者**: Ajnabiul Hoque et al. (Digital Discovery, RSC, 2022)
 - **期刊**: *Digital Discovery*, 2022
@@ -330,7 +330,7 @@
 
 ---
 
-### [19] Molecular Machine Learning Approach to Enantioselective C–H Bond Activation: From Generative AI to Experimental Validation
+### [24] Molecular Machine Learning Approach to Enantioselective C–H Bond Activation: From Generative AI to Experimental Validation
 
 - **作者**: Ajnabiul Hoque et al.
 - **期刊**: *Chemical Science* (RSC), 2025
@@ -346,7 +346,7 @@
 <a name="section3"></a>
 ## 3. 一般有机反应立体化学结果预测
 
-### [20] Data-Efficient, Chemistry-Aware Machine Learning Predictions of Diels–Alder Reaction Outcomes
+### [25] Data-Efficient, Chemistry-Aware Machine Learning Predictions of Diels–Alder Reaction Outcomes
 
 - **作者**: Angus Keto, Taicheng Guo, Morgan Underdue, Thijs Stuyver, Connor W. Coley, Xiangliang Zhang, Elizabeth H. Krenske, Olaf Wiest (UQ + Notre Dame + MIT)
 - **期刊**: *Journal of the American Chemical Society*, 2024, **146**(23), 16052–16061
@@ -359,7 +359,7 @@
 
 ---
 
-### [21] Data Checking of Asymmetric Catalysis Literature Using a Graph Neural Network Approach
+### [26] Data Checking of Asymmetric Catalysis Literature Using a Graph Neural Network Approach
 
 - **作者**: Eduardo Aguilar-Bejarano et al.
 - **期刊**: *Molecules*, 2025, **30**(2), Art. 355
@@ -372,7 +372,7 @@
 
 ---
 
-### [22] Homogeneous catalyst graph neural network: A human-interpretable GNN tool for ligand optimization in asymmetric catalysis
+### [27] Homogeneous catalyst graph neural network: A human-interpretable GNN tool for ligand optimization in asymmetric catalysis
 
 - **作者**: Eduardo Aguilar-Bejarano et al.
 - **期刊**: *iScience*, 2025
@@ -388,7 +388,7 @@
 <a name="section4"></a>
 ## 4. 手性感知GNN与分子表征方法
 
-### [23] ChIRo: Learning 3D Representations of Molecular Chirality with Invariance to Bond Rotations
+### [28] ChIRo: Learning 3D Representations of Molecular Chirality with Invariance to Bond Rotations
 
 - **作者**: Keir Adams et al.
 - **期刊**: *ICLR 2022* (机器学习顶会)
@@ -401,7 +401,7 @@
 
 ---
 
-### [24] ChiENN: Embracing Molecular Chirality with Graph Neural Networks
+### [29] ChiENN: Embracing Molecular Chirality with Graph Neural Networks
 
 - **作者**: Piotr Gaiński et al.
 - **期刊**: *ECML PKDD 2023* (Springer LNCS, pp. 36–52)
@@ -414,7 +414,7 @@
 
 ---
 
-### [25] 3DReact: Geometric Deep Learning for Chemical Reactions
+### [30] 3DReact: Geometric Deep Learning for Chemical Reactions
 
 - **作者**: Puck van Gerwen et al. (Valence Labs)
 - **期刊**: *Journal of Chemical Information and Modeling*, 2024
@@ -427,7 +427,7 @@
 
 ---
 
-### [26] Difficulty in Chirality Recognition for Transformer Architectures Learning Chemical Structures from String Representations
+### [31] Difficulty in Chirality Recognition for Transformer Architectures Learning Chemical Structures from String Representations
 
 - **作者**: Yasuhiro Yoshikai et al.
 - **期刊**: *Nature Communications*, 2024 (Feb. 16)
@@ -440,7 +440,7 @@
 
 ---
 
-### [27] Root-Aligned SMILES: A Tight Representation for Chemical Reaction Prediction
+### [32] Root-Aligned SMILES: A Tight Representation for Chemical Reaction Prediction
 
 - **作者**: Zhong-ting Wan et al.
 - **期刊**: *Chemical Science* (RSC), 2022
@@ -453,7 +453,7 @@
 
 ---
 
-### [28] Enhancing Deep Chemical Reaction Prediction with Advanced Chirality and Fragment Representation (fragSMILES)
+### [33] Enhancing Deep Chemical Reaction Prediction with Advanced Chirality and Fragment Representation (fragSMILES)
 
 - **作者**: Fabrizio Mastrolorito et al.
 - **期刊**: *Chemical Communications* (RSC), 2025
@@ -466,7 +466,7 @@
 
 ---
 
-### [29] Advancing Molecular Machine Learning with Stereoelectronics-Infused Molecular Graphs (SIMG)
+### [34] Advancing Molecular Machine Learning with Stereoelectronics-Infused Molecular Graphs (SIMG)
 
 - **作者**: Dávid Bajusz et al. (Gomes group, Cornell)
 - **期刊**: *Nature Machine Intelligence*, 2025
@@ -479,7 +479,7 @@
 
 ---
 
-### [30] Learning Molecular Chirality via Chiral Determinant Kernels (ChiDeK)
+### [35] Learning Molecular Chirality via Chiral Determinant Kernels (ChiDeK)
 
 - **作者**: Runhan Shi et al.
 - **期刊**: *ICLR 2026* (机器学习顶会，已接收)
@@ -492,7 +492,7 @@
 
 ---
 
-### [31] Stereoisomers Are Not Machine Learning's Best Friends
+### [36] Stereoisomers Are Not Machine Learning's Best Friends
 
 - **作者**: Gökhan Tahıl et al.
 - **期刊**: *Journal of Chemical Information and Modeling*, 2024, **64**(14), 5451–5469
@@ -505,7 +505,7 @@
 
 ---
 
-### [32] Evaluation of Chirality Descriptors Derived from SMILES Heteroencoders
+### [37] Evaluation of Chirality Descriptors Derived from SMILES Heteroencoders
 
 - **作者**: Natalia Baimacheva et al.
 - **期刊**: *Journal of Cheminformatics*, 2025
@@ -518,7 +518,7 @@
 
 ---
 
-### [33] Prediction of Human Liver Microsome Clearance with Chirality-Focused Graph Neural Networks
+### [38] Prediction of Human Liver Microsome Clearance with Chirality-Focused Graph Neural Networks
 
 - **作者**: Chengtao Pu et al.
 - **期刊**: *Journal of Chemical Information and Modeling*, 2024, **64**(14), 5427–5438
@@ -534,7 +534,7 @@
 <a name="section5"></a>
 ## 5. 综述与展望类
 
-### [34] %VBur index and steric maps: from predictive catalysis to machine learning
+### [39] %VBur index and steric maps: from predictive catalysis to machine learning
 
 - **作者**: Sílvia Escayola et al.
 - **期刊**: *Chemical Society Reviews*, 2024, **53**(2), 853–882
@@ -545,7 +545,7 @@
 
 ---
 
-### [35] Machine learning-guided strategies for reaction conditions design and optimization
+### [40] Machine learning-guided strategies for reaction conditions design and optimization
 
 - **作者**: Lung-Yi Chen et al.
 - **期刊**: *Beilstein Journal of Organic Chemistry*, 2024, **20**, 2476–2492
@@ -556,7 +556,7 @@
 
 ---
 
-### [36] Machine Learning Strategies for Reaction Development: Toward the Low-Data Limit
+### [41] Machine Learning Strategies for Reaction Development: Toward the Low-Data Limit
 
 - **作者**: Eunjae Shim et al.
 - **期刊**: *Journal of Chemical Information and Modeling*, 2023, **63**(12), 3659–3668
@@ -567,7 +567,7 @@
 
 ---
 
-### [37] Rethinking chemical research in the age of large language models
+### [42] Rethinking chemical research in the age of large language models
 
 - **作者**: Robert MacKnight et al.
 - **期刊**: *Nature Computational Science*, 2025, **5**, 715–726
@@ -578,7 +578,7 @@
 
 ---
 
-### [38] A Perspective on Foundation Models in Chemistry
+### [43] A Perspective on Foundation Models in Chemistry
 
 - **作者**: Junyoung Choi et al.
 - **期刊**: *JACS Au*, 2025, **5**(4), 1499–1518
