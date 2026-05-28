@@ -1,0 +1,24 @@
+{
+  "model": "xgb_optuna",
+  "best_tscv": 0.647,
+  "fold_scores": [
+    0.6313,
+    0.6713,
+    0.6714,
+    0.6139
+  ],
+  "mean": 0.647,
+  "std": 0.0252,
+  "best_params": {
+    "n_estimators": 500,
+    "max_depth": 8,
+    "learning_rate": 0.014800762741957917,
+    "subsample": 0.9769801390677967,
+    "colsample_bytree": 0.35462196093027504,
+    "gamma": 0.9375896951061986,
+    "reg_lambda": 0.2812007063756515,
+    "reg_alpha": 0.000635018307029876,
+    "min_child_weight": 1
+  },
+  "n_trials": 200
+}

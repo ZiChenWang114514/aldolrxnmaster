@@ -1,0 +1,11 @@
+split,bal_acc,n_test
+grouped_seed1024,0.7529,477
+grouped_seed123,0.7557,437
+grouped_seed42,0.7636,460
+grouped_seed456,0.7244,474
+grouped_seed789,0.7073,475
+scaffold,0.5768,1239
+tscv_fold1,0.6007,959
+tscv_fold2,0.6554,640
+tscv_fold3,0.648,346
+tscv_fold4,0.5643,189
