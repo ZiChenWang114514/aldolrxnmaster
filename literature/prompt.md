@@ -2,7 +2,9 @@
 
 > **版本**：v3 · 2026-05-28
 > **用途**：逐篇分析 `sota_stereo_prediction_2022_2026.md` 中的文献，提取对本项目的可操作技术启示。
-> **使用方式**：将本 prompt 全文 + 目标论文 PDF 一起送入 agent，严格按步骤顺序执行。
+> **使用方式**：将本 prompt 全文 + 目标论文 PDF 一起送入 agent，严格按步骤顺序执行。本 prompt 完全自洽，agent 无需访问任何外部文件或上下文。
+> **输出语言**：全部用**中文**撰写分析内容（专有名词、模型名、特征名保留英文原文）。
+> **降级处理**：若 PDF 无法解析（扫描版/加密），改用论文摘要+引言+方法节文字；若仅有摘要，在输出首行注明"⚠️ 仅基于摘要分析，部分节可能不完整"，§2.3/§2.4 标注"摘要未报告"而非空填。
 
 ---
 
@@ -65,11 +67,12 @@
 - **示例**：`download(1).pdf` → `2021-ChemSci-glycosylation-stereoselectivity.pdf`
 
 ```bash
-mkdir -p literature/pdfs
-mv "[原始文件名]" "literature/pdfs/YYYY-JournalAbbrev-keyword.pdf"
+# 项目根目录：/data2/zcwang/aldolrxnmaster/
+mkdir -p /data2/zcwang/aldolrxnmaster/literature/pdfs
+mv "[原始文件名]" "/data2/zcwang/aldolrxnmaster/literature/pdfs/YYYY-JournalAbbrev-keyword.pdf"
 ```
 
-**分析文件同名输出**：`literature/analysis/YYYY-JournalAbbrev-keyword.md`
+**分析文件同名输出**：`/data2/zcwang/aldolrxnmaster/literature/analysis/YYYY-JournalAbbrev-keyword.md`
 
 在输出文件第一行写：
 > `文件重命名：[原始名] → YYYY-JournalAbbrev-keyword.pdf`
@@ -199,7 +202,7 @@ Step 3: ...
 
 > 本项目的核心技术挑战。请深度分析，不得简略作答。
 
-1. **SMILES 手性编码**：`@/@@` 标注如何处理？保留还是去除？是否有证据表明标准 SMILES 手性对模型有效？（参考背景：本调研 [31] 证明 Transformer 对 SMILES 手性识别率极低）
+1. **SMILES 手性编码**：`@/@@` 标注如何处理？保留还是去除？是否有证据表明标准 SMILES 手性对模型有效？（参考背景：Guo et al., *Nature Communications* 2024, "Difficulty in Chirality Recognition for Transformer Architectures Learning Chemical Structures from String Representations" 已证明标准 Transformer 对 SMILES 中 `@/@@` 手性标注的识别率极低，接近随机）
 2. **CIP 绝对构型 vs 相对构型**：论文是否区分了 syn/anti（几何相对构型）与 R/S（CIP 绝对构型）？本项目的根本混淆源就是两者的不一致（芳香醛 CIP 翻转）。
 3. **立体中心局部环境**：是否设计了围绕立体中心局部原子的专用特征？（类比本项目的 `ald_pri_*` 8维特征）具体如何定义局部环境？
 4. **标签噪声处理**：是否有数据清洗 / 噪声鲁棒训练 / 标签平滑 / 置信度加权 等应对标签不确定性的方法？
@@ -222,7 +225,7 @@ Step 3: ...
 |------|------|
 | **来自论文** | 第X节 / 图X / 表X |
 | **论文怎么做** | （1句话，含具体方法/参数）|
-| **在本项目中怎么用** | 具体到：修改哪个脚本（`scripts/run_*.py`）/ 在 `v4_features.csv` 中新增哪列 / 替换哪个模型 |
+| **在本项目中怎么用** | 具体到以下任意一种：① 修改哪个脚本（项目路径 `/data2/zcwang/aldolrxnmaster/scripts/`，如 `run_features_v4.py` / `run_all_models_v4.py`）；② 在特征矩阵 `data/features_v4/v4_features.csv` 中新增哪类列；③ 替换或新增哪个模型；④ 修改数据清洗管线 `scripts/run_rebuild_v4.py` 的哪一步 |
 | **预期收益** | TSCV 准确率可能提升X% / class 0/3 F1 改善 / 可解释性增强 / OOD 性能提升 |
 | **实现难度** | 低（<半天，改参数/加列）/ 中（1-3天，新特征提取）/ 高（>3天，需DFT计算/新数据） |
 | **优先级** | 🔴 高 / 🟡 中 / ⚪ 低 |
@@ -277,8 +280,8 @@ Step 3: ...
 - [ ] §5 优先级矩阵：已填写
 - [ ] 全文无"不适用"未加原因的空项
 
-**文件输出路径**：`literature/analysis/YYYY-JournalAbbrev-keyword.md`
+**文件输出路径**：`/data2/zcwang/aldolrxnmaster/literature/analysis/YYYY-JournalAbbrev-keyword.md`
 
 ---
 
-*AldolRxnMaster Paper Analysis Prompt v3 · 2026-05-28*
+*AldolRxnMaster Paper Analysis Prompt v3.1 · 2026-05-28 · Self-contained, no external context required*
