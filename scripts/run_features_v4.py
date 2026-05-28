@@ -602,6 +602,139 @@ def _compute_ald_priority_one(smi, ald_pat) -> dict:
     return feat
 
 
+def compute_delta_chirality_features(df: pd.DataFrame) -> pd.DataFrame:
+    """B1: Delta chirality descriptors (16d) — [37] Baimacheva 2025.
+
+    Computes FP(ketone) - FP(enantiomer) to isolate chirality-sensitive bits,
+    then PCA to 16d. Uses ketone SMILES only (no product leakage).
+    """
+    from rdkit.Chem import AllChem
+    from sklearn.decomposition import PCA
+    import re
+
+    print("Computing delta chirality features...")
+
+    def _flip_chirality(smi):
+        """Flip all @/@@: @ → @@, @@ → @."""
+        if smi is None or not isinstance(smi, str):
+            return None
+        return re.sub(r'@@|@', lambda m: '@' if m.group() == '@@' else '@@', smi)
+
+    deltas = []
+    valid_idx = []
+    for i, row in df.iterrows():
+        smi = row.get("canonical_ketone_smiles")
+        if pd.isna(smi) or not isinstance(smi, str):
+            deltas.append(np.zeros(512))
+            continue
+
+        mol = Chem.MolFromSmiles(smi)
+        enan_smi = _flip_chirality(smi)
+        enan_mol = Chem.MolFromSmiles(enan_smi) if enan_smi else None
+
+        if mol is None or enan_mol is None:
+            deltas.append(np.zeros(512))
+            continue
+
+        fp_orig = AllChem.GetMorganFingerprintAsBitVect(mol, radius=3, nBits=512, useChirality=True)
+        fp_enan = AllChem.GetMorganFingerprintAsBitVect(enan_mol, radius=3, nBits=512, useChirality=True)
+        delta = np.array(fp_orig, dtype=np.float32) - np.array(fp_enan, dtype=np.float32)
+        deltas.append(delta)
+        if np.any(delta != 0):
+            valid_idx.append(i)
+
+    delta_matrix = np.vstack(deltas)
+    n_nonzero = len(valid_idx)
+    print(f"  Non-zero delta vectors: {n_nonzero}/{len(df)} ({n_nonzero/len(df)*100:.1f}%)")
+
+    # PCA to 16d
+    n_components = min(16, delta_matrix.shape[1], n_nonzero)
+    if n_components < 1:
+        n_components = 1
+    pca = PCA(n_components=n_components, random_state=42)
+    delta_pca = pca.fit_transform(delta_matrix)
+    explained = pca.explained_variance_ratio_.sum()
+    print(f"  PCA {n_components}d explained variance: {explained:.3f}")
+
+    # Pad to 16d if needed
+    if delta_pca.shape[1] < 16:
+        pad = np.zeros((delta_pca.shape[0], 16 - delta_pca.shape[1]))
+        delta_pca = np.hstack([delta_pca, pad])
+
+    cols = [f"delta_chiral_{i}" for i in range(16)]
+    return pd.DataFrame(delta_pca, columns=cols)
+
+
+def compute_chiral_determinant(df: pd.DataFrame) -> pd.DataFrame:
+    """B3: Continuous chirality determinant (3d) — [35] ChiDeK ICLR 2026.
+
+    Computes signed tetrahedral volume for each stereocenter from 3D conformer.
+    Continuous measure replaces discrete R/S encoding.
+    """
+    from rdkit.Chem import AllChem, rdMolDescriptors
+
+    print("Computing chiral determinant features...")
+
+    results = []
+    for _, row in df.iterrows():
+        smi = row.get("canonical_ketone_smiles")
+        feat = {"chiral_det_mean": 0.0, "chiral_det_max": 0.0, "chiral_det_abs_sum": 0.0}
+
+        if pd.isna(smi) or not isinstance(smi, str):
+            results.append(feat)
+            continue
+
+        mol = Chem.MolFromSmiles(smi)
+        if mol is None:
+            results.append(feat)
+            continue
+
+        mol = Chem.AddHs(mol)
+        params = AllChem.ETKDGv3()
+        params.randomSeed = 42
+        status = AllChem.EmbedMolecule(mol, params)
+        if status != 0:
+            # Fallback: try without ETKDG constraints
+            status = AllChem.EmbedMolecule(mol, AllChem.ETKDG())
+        if status != 0:
+            results.append(feat)
+            continue
+
+        AllChem.MMFFOptimizeMolecule(mol, maxIters=200)
+        conf = mol.GetConformer()
+
+        Chem.AssignStereochemistry(mol, cleanIt=True, force=True)
+        chiral_centers = Chem.FindMolChiralCenters(mol, includeUnassigned=True)
+
+        dets = []
+        for atom_idx, _ in chiral_centers:
+            atom = mol.GetAtomWithIdx(atom_idx)
+            neighbors = [n.GetIdx() for n in atom.GetNeighbors()]
+            if len(neighbors) < 4:
+                continue
+
+            # Take first 4 neighbors
+            p0 = np.array(conf.GetAtomPosition(atom_idx))
+            coords = [np.array(conf.GetAtomPosition(neighbors[j])) for j in range(4)]
+
+            # Signed volume = det([v1-v0, v2-v0, v3-v0])
+            v = [coords[j] - coords[0] for j in range(1, 4)]
+            det_val = np.linalg.det(np.array(v))
+            dets.append(det_val)
+
+        if dets:
+            feat["chiral_det_mean"] = float(np.mean(dets))
+            feat["chiral_det_max"] = float(max(dets, key=abs))
+            feat["chiral_det_abs_sum"] = float(np.sum(np.abs(dets)))
+
+        results.append(feat)
+
+    det_df = pd.DataFrame(results)
+    n_nonzero = (det_df["chiral_det_abs_sum"] > 0).sum()
+    print(f"  Non-zero determinant: {n_nonzero}/{len(df)} ({n_nonzero/len(df)*100:.1f}%)")
+    return det_df
+
+
 def compute_auxiliary_features(df: pd.DataFrame) -> pd.DataFrame:
     """Compute auxiliary one-hot features (6d, unchanged for backward compat)."""
     aux_types = ["evans", "crimmins_thione", "crimmins_oxathione", "other_auxiliary", "myers"]
@@ -624,11 +757,13 @@ def integrate_features(
     rgroup_df: pd.DataFrame = None,
     chiralenv_df: pd.DataFrame = None,
     aldpri_df: pd.DataFrame = None,
+    delta_chiral_df: pd.DataFrame = None,
+    chiral_det_df: pd.DataFrame = None,
 ):
     """Integrate all features into a single matrix.
 
-    First 84 columns = steric(34) + conditions(44) + auxiliary(6) for backward compat.
-    New blocks appended: chirality(7) + rgroup(8) + chiralenv(21) = +36d.
+    First 84 columns = steric(34) + conditions(50) + auxiliary(6) for backward compat.
+    New blocks appended: chirality(7) + rgroup(8) + chiralenv(21) + aldpri(8) + delta(16) + det(3).
     """
     # Load condition features from V4 pipeline output
     cond_path = PROJECT_DIR / "data" / "clean_v4" / "condition_features.csv"
@@ -653,6 +788,12 @@ def integrate_features(
     if aldpri_df is not None:
         blocks.append(aldpri_df.reset_index(drop=True))
         print(f"  Ald priority: {aldpri_df.shape[1]}d")
+    if delta_chiral_df is not None:
+        blocks.append(delta_chiral_df.reset_index(drop=True))
+        print(f"  Delta chirality: {delta_chiral_df.shape[1]}d")
+    if chiral_det_df is not None:
+        blocks.append(chiral_det_df.reset_index(drop=True))
+        print(f"  Chiral determinant: {chiral_det_df.shape[1]}d")
 
     feat_df = pd.concat(blocks, axis=1)
     print(f"  Combined: {feat_df.shape[1]}d before NaN handling")
@@ -721,6 +862,16 @@ def main():
     aldpri_df = compute_aldehyde_priority_features(df)
     print(f"  Aldehyde priority features: {aldpri_df.shape[1]}d")
 
+    # --- B3e: Delta chirality features ---
+    print("\n--- Phase B3e: Delta Chirality Features ---")
+    delta_chiral_df = compute_delta_chirality_features(df)
+    print(f"  Delta chirality features: {delta_chiral_df.shape[1]}d")
+
+    # --- B3f: Continuous chirality determinant ---
+    print("\n--- Phase B3f: Continuous Chirality Determinant ---")
+    chiral_det_df = compute_chiral_determinant(df)
+    print(f"  Chiral determinant features: {chiral_det_df.shape[1]}d")
+
     # --- B4: Auxiliary features ---
     print("\n--- Phase B4: Auxiliary Features ---")
     aux_df = compute_auxiliary_features(df)
@@ -734,6 +885,8 @@ def main():
         rgroup_df=rgroup_df,
         chiralenv_df=chiralenv_df,
         aldpri_df=aldpri_df,
+        delta_chiral_df=delta_chiral_df,
+        chiral_det_df=chiral_det_df,
     )
     feat_df.to_csv(FEAT_DIR / "v4_features.csv", index=False)
     print(f"  Saved v4_features.csv ({feat_df.shape})")
@@ -766,6 +919,8 @@ def main():
         "rgroup_dims": rgroup_df.shape[1],
         "chiralenv_dims": chiralenv_df.shape[1],
         "aldpri_dims": aldpri_df.shape[1],
+        "delta_chiral_dims": delta_chiral_df.shape[1],
+        "chiral_det_dims": chiral_det_df.shape[1],
     }
     with open(FEAT_DIR / "feature_manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)

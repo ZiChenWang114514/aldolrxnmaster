@@ -1,0 +1,10 @@
+group,n_features,total_importance
+steric,34,0.558889
+conditions,50,0.357225
+auxiliary,5,0.016502
+chirality,10,0.178484
+rgroup,8,0.003942
+chiralenv,21,0.27678
+aldpri,8,0.394069
+delta_chiral,16,0.324936
+chiral_det,3,0.092252

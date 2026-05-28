@@ -1,0 +1,6 @@
+auxiliary,n_test,bal_acc,recall_class0,recall_class1,recall_class2,recall_class3
+crimmins_oxathione,70,0.4484,0.25,0.714,0.3,0.529
+crimmins_thione,377,0.5896,0.6,0.603,0.6,0.556
+evans,1339,0.7942,0.633,0.876,0.911,0.757
+oppolzer,108,0.3389,0.4,0.667,0.222,0.067
+other_auxiliary,238,0.1522,0.126,0.0,0.105,0.378

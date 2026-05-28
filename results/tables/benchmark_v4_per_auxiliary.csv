@@ -1,0 +1,11 @@
+subset,n_samples,model,n_folds,tscv_mean,tscv_std
+Evans,1654,xgb,4,0.6784,0.039
+Evans,1654,et,4,0.7099,0.0597
+Crimmins_thione,259,xgb,3,0.4467,0.0305
+Crimmins_thione,259,et,3,0.5666,0.0893
+Crimmins_oxathione,161,xgb,3,0.3525,0.1052
+Crimmins_oxathione,161,et,3,0.3481,0.1012
+Oppolzer,141,xgb,3,0.3998,0.0441
+Oppolzer,141,et,3,0.4249,0.1106
+All,2334,xgb,4,0.641,0.0481
+All,2334,et,4,0.6461,0.0379

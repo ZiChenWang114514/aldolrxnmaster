@@ -6,14 +6,14 @@
 
 **数据**: 2334 substrate-controlled aldol reactions (V4d, 从 134K Reaxys 原始数据重建)
 **辅基**: Evans (1654) + Crimmins thione (259) + Crimmins oxathione (161) + Oppolzer (141) + Other (105) + Myers (14)
-**特征**: Steric (34d) + Conditions (44d) + Auxiliary (6d) + Chirality (7d) + R-group (8d) + ChiralEnv (21d) + AldPriority (8d) = **128d**
+**特征**: Steric (34d) + Conditions (50d) + Auxiliary (6d) + Chirality (7d) + R-group (8d) + ChiralEnv (21d) + AldPriority (8d) + DeltaChiral (16d) + ChiralDet (3d) = **153d**
 **MechAware**: BW (112d) / Full (328d) 可选叠加
 **划分**: TSCV 4-fold temporal + Scaffold (Murcko) + Grouped random (5 seeds)
 **评估**: balanced accuracy (macro-averaged recall, 4-class)
 **无泄漏**: role-aware group_id, DRFP 已排除, 手性特征仅从酮 SMILES 提取
 **3D syn/anti**: step08b 二面角法计算 label_syn_anti_3d（98.7% 成功率），仅作分析标签
 
-### Champion: ma_bw_xgb_optuna (TSCV = 0.666, Optuna-tuned)
+### Champion: ma_bw_xgb_optuna (TSCV = 0.669 on 153d, Optuna-tuned)
 
 ### Optuna-Tuned Models (2026-05-28)
 
@@ -121,6 +121,44 @@ TSCV 距离-精度相关: r = **-0.916**（几乎完美负相关）
 4. **Steric 仍是核心**: steronly_xgb (0.542) 仍远超 condaux (0.436)，3D 结构不可或缺
 5. **3D syn/anti 不是 CIP**: label_SA vs label_syn_anti_3d 一致率仅 45.6%
 6. **化学距离决定性能**: TSCV distance-accuracy r=-0.916
+
+### SHAP Feature Importance (153d, 2026-05-28)
+
+| Rank | Feature | Global SHAP | 说明 |
+|------|---------|------------|------|
+| 1 | ald_pri_priority_proxy | 0.179 | 醛 CIP 优先级代理 |
+| 2 | **delta_chiral_0** | **0.103** | 🆕 Delta 手性 PC1 |
+| 3 | ald_pri_max_atomic_num | 0.074 | 醛最大原子序数 |
+| 4 | ald_pri_alpha_branching | 0.074 | 醛 alpha 支链 |
+| 5 | ald_B1_mean | 0.057 | 醛 Sterimol B1 |
+| 6 | chiralenv_ald_frac_sp3 | 0.057 | 醛 sp3 比例 |
+| 7 | ald_Vbur_total_mean | 0.055 | 醛埋藏体积 |
+| 8 | chiralenv_ket_chirality_gradient | 0.054 | 酮手性梯度 |
+| 9 | **chiral_det_mean** | **0.050** | 🆕 连续手性行列式 |
+| 10 | chiral_aux_c4_R | 0.047 | 辅基 C4 CIP |
+
+Feature group importance:
+- steric 34d: 0.559 | aldpri 8d: 0.394 | conditions 50d: 0.357
+- **delta_chiral 16d: 0.325** | chiralenv 21d: 0.277 | chirality 10d: 0.178
+- **chiral_det 3d: 0.092** | auxiliary 5d: 0.017 | rgroup 8d: 0.004
+
+### Per-Auxiliary Independent Models (2026-05-28)
+
+| 辅基 | n | XGB TSCV | ET TSCV | 评价 |
+|------|---|----------|---------|------|
+| **Evans** | 1654 | 0.678 | **0.710** | 优秀 |
+| Crimmins thione | 259 | 0.447 | **0.567** | 中等 |
+| Crimmins oxathione | 161 | 0.353 | 0.348 | 差 |
+| Oppolzer | 141 | 0.400 | **0.425** | 差 |
+| All (统一) | 2334 | 0.641 | 0.646 | 基线 |
+
+### Error Analysis (2026-05-28)
+
+Confusion matrix (全 TSCV, XGB Optuna):
+- Class 0 (RR) recall: 0.486 | Class 1 (RS): 0.768 | Class 2 (SR): 0.786 | Class 3 (SS): 0.615
+- 最常见错误: RR→SS (175), RR→RS (114), SS→RR (75) — CIP 优先级翻转
+- 高置信度错误 (prob>0.8): 0 个
+- 标注错误候选: 259 个
 
 ### V3 → V4 数据变化说明
 

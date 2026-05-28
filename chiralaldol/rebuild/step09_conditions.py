@@ -59,7 +59,7 @@ def _has_keyword(reagents: list[str], keywords: list[str]) -> bool:
 
 
 def _get_solvent_features(solvent_name: str | None) -> dict:
-    """Get 8d solvent features (7 continuous + 1 flag)."""
+    """Get 14d solvent features (13 continuous + 1 flag)."""
     result = {k: np.nan for k in SOLVENT_FEATURE_NAMES}
     result["solvent_known"] = 0.0
 
@@ -79,12 +79,18 @@ def _get_solvent_features(solvent_name: str | None) -> dict:
         result["solvent_viscosity"] = params["viscosity_cP"]
         result["solvent_bp"] = params["bp_C"]
         result["solvent_known"] = 1.0
+        result["solvent_mw"] = params["mw"]
+        result["solvent_density"] = params["density_g_mL"]
+        result["solvent_refractive_index"] = params["refractive_index"]
+        result["solvent_dipole"] = params["dipole_D"]
+        result["solvent_molar_vol"] = params["molar_vol_cm3"]
+        result["solvent_logP"] = params["logP"]
 
     return result
 
 
 def run(context: dict) -> dict:
-    """Compute all condition features (44d)."""
+    """Compute all condition features (50d: 44 original + 6 new solvent descriptors)."""
     df: pd.DataFrame = context["df"].copy()
     n = len(df)
     logger.info(f"Step 9: Condition feature engineering for {n} rows")

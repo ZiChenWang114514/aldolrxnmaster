@@ -32,126 +32,158 @@ KETONE_SMARTS = "[CH2,CH;X3,X4:1]-[CX3:2](=[OX1:3])-[NX3:4]"
 
 # ─────────────────── Solvent parameters ───────────────────
 # Extended: Kamlet-Taft (alpha, beta, pi_star, ET30) + physical (epsilon, viscosity_cP, bp_C)
+#         + Amar/Sigman 2019 descriptors: mw, density_g_mL, refractive_index, dipole_D, molar_vol_cm3, logP
+# Sources: CRC Handbook 97th ed., Stenutz tables, PubChem, DrugBank
 SOLVENT_DB = {
     "dichloromethane": {
         "alpha": 0.13, "beta": 0.10, "pi_star": 0.82, "ET30": 40.7,
         "epsilon": 8.93, "viscosity_cP": 0.44, "bp_C": 40.0,
+        "mw": 84.93, "density_g_mL": 1.327, "refractive_index": 1.424, "dipole_D": 1.60, "molar_vol_cm3": 64.0, "logP": 1.25,
     },
     "tetrahydrofuran": {
         "alpha": 0.00, "beta": 0.55, "pi_star": 0.58, "ET30": 37.4,
         "epsilon": 7.52, "viscosity_cP": 0.46, "bp_C": 66.0,
+        "mw": 72.11, "density_g_mL": 0.889, "refractive_index": 1.407, "dipole_D": 1.75, "molar_vol_cm3": 81.1, "logP": 0.46,
     },
     "ethyl acetate": {
         "alpha": 0.00, "beta": 0.45, "pi_star": 0.55, "ET30": 38.1,
         "epsilon": 6.02, "viscosity_cP": 0.45, "bp_C": 77.1,
+        "mw": 88.11, "density_g_mL": 0.902, "refractive_index": 1.372, "dipole_D": 1.78, "molar_vol_cm3": 97.7, "logP": 0.73,
     },
     "diethyl ether": {
         "alpha": 0.00, "beta": 0.47, "pi_star": 0.27, "ET30": 34.5,
         "epsilon": 4.27, "viscosity_cP": 0.22, "bp_C": 34.6,
+        "mw": 74.12, "density_g_mL": 0.713, "refractive_index": 1.353, "dipole_D": 1.15, "molar_vol_cm3": 104.0, "logP": 0.89,
     },
     "toluene": {
         "alpha": 0.00, "beta": 0.11, "pi_star": 0.54, "ET30": 33.9,
         "epsilon": 2.38, "viscosity_cP": 0.59, "bp_C": 110.6,
+        "mw": 92.14, "density_g_mL": 0.867, "refractive_index": 1.497, "dipole_D": 0.36, "molar_vol_cm3": 106.3, "logP": 2.73,
     },
     "pentane": {
         "alpha": 0.00, "beta": 0.00, "pi_star": -0.08, "ET30": 31.1,
         "epsilon": 1.84, "viscosity_cP": 0.24, "bp_C": 36.1,
+        "mw": 72.15, "density_g_mL": 0.626, "refractive_index": 1.358, "dipole_D": 0.00, "molar_vol_cm3": 115.2, "logP": 3.39,
     },
     "hexane": {
         "alpha": 0.00, "beta": 0.00, "pi_star": -0.04, "ET30": 31.0,
         "epsilon": 1.88, "viscosity_cP": 0.33, "bp_C": 69.0,
+        "mw": 86.18, "density_g_mL": 0.659, "refractive_index": 1.375, "dipole_D": 0.00, "molar_vol_cm3": 130.7, "logP": 3.90,
     },
     "heptane": {
         "alpha": 0.00, "beta": 0.00, "pi_star": -0.02, "ET30": 31.1,
         "epsilon": 1.92, "viscosity_cP": 0.42, "bp_C": 98.4,
+        "mw": 100.20, "density_g_mL": 0.684, "refractive_index": 1.388, "dipole_D": 0.00, "molar_vol_cm3": 146.5, "logP": 4.66,
     },
     "acetonitrile": {
         "alpha": 0.19, "beta": 0.40, "pi_star": 0.75, "ET30": 45.6,
         "epsilon": 36.6, "viscosity_cP": 0.37, "bp_C": 82.0,
+        "mw": 41.05, "density_g_mL": 0.786, "refractive_index": 1.344, "dipole_D": 3.92, "molar_vol_cm3": 52.2, "logP": -0.34,
     },
     "methanol": {
         "alpha": 0.98, "beta": 0.66, "pi_star": 0.60, "ET30": 55.4,
         "epsilon": 32.7, "viscosity_cP": 0.54, "bp_C": 64.7,
+        "mw": 32.04, "density_g_mL": 0.791, "refractive_index": 1.329, "dipole_D": 1.70, "molar_vol_cm3": 40.5, "logP": -0.77,
     },
     "ethanol": {
         "alpha": 0.86, "beta": 0.75, "pi_star": 0.54, "ET30": 51.9,
         "epsilon": 24.5, "viscosity_cP": 1.07, "bp_C": 78.4,
+        "mw": 46.07, "density_g_mL": 0.789, "refractive_index": 1.361, "dipole_D": 1.69, "molar_vol_cm3": 58.4, "logP": -0.31,
     },
     "isopropanol": {
         "alpha": 0.76, "beta": 0.84, "pi_star": 0.48, "ET30": 48.4,
         "epsilon": 19.9, "viscosity_cP": 2.04, "bp_C": 82.6,
+        "mw": 60.10, "density_g_mL": 0.786, "refractive_index": 1.377, "dipole_D": 1.58, "molar_vol_cm3": 76.5, "logP": 0.05,
     },
     "water": {
         "alpha": 1.17, "beta": 0.47, "pi_star": 1.09, "ET30": 63.1,
         "epsilon": 80.1, "viscosity_cP": 1.00, "bp_C": 100.0,
+        "mw": 18.02, "density_g_mL": 0.998, "refractive_index": 1.333, "dipole_D": 1.85, "molar_vol_cm3": 18.1, "logP": -1.38,
     },
     "chloroform": {
         "alpha": 0.20, "beta": 0.10, "pi_star": 0.58, "ET30": 39.1,
         "epsilon": 4.81, "viscosity_cP": 0.54, "bp_C": 61.2,
+        "mw": 119.38, "density_g_mL": 1.489, "refractive_index": 1.446, "dipole_D": 1.04, "molar_vol_cm3": 80.2, "logP": 1.97,
     },
     "1,2-dichloroethane": {
         "alpha": 0.00, "beta": 0.10, "pi_star": 0.81, "ET30": 41.3,
         "epsilon": 10.4, "viscosity_cP": 0.84, "bp_C": 83.5,
+        "mw": 98.96, "density_g_mL": 1.253, "refractive_index": 1.445, "dipole_D": 1.80, "molar_vol_cm3": 79.0, "logP": 1.48,
     },
     "dimethylformamide": {
         "alpha": 0.00, "beta": 0.69, "pi_star": 0.88, "ET30": 43.2,
         "epsilon": 36.7, "viscosity_cP": 0.92, "bp_C": 153.0,
+        "mw": 73.09, "density_g_mL": 0.944, "refractive_index": 1.431, "dipole_D": 3.82, "molar_vol_cm3": 77.4, "logP": -1.01,
     },
     "dmso": {
         "alpha": 0.00, "beta": 0.76, "pi_star": 1.00, "ET30": 45.1,
         "epsilon": 46.7, "viscosity_cP": 1.99, "bp_C": 189.0,
+        "mw": 78.13, "density_g_mL": 1.100, "refractive_index": 1.479, "dipole_D": 3.96, "molar_vol_cm3": 71.0, "logP": -1.35,
     },
     "acetone": {
         "alpha": 0.08, "beta": 0.43, "pi_star": 0.71, "ET30": 42.2,
         "epsilon": 20.5, "viscosity_cP": 0.32, "bp_C": 56.1,
+        "mw": 58.08, "density_g_mL": 0.791, "refractive_index": 1.359, "dipole_D": 2.88, "molar_vol_cm3": 73.4, "logP": -0.24,
     },
     "benzene": {
         "alpha": 0.00, "beta": 0.10, "pi_star": 0.59, "ET30": 34.3,
         "epsilon": 2.28, "viscosity_cP": 0.65, "bp_C": 80.1,
+        "mw": 78.11, "density_g_mL": 0.879, "refractive_index": 1.501, "dipole_D": 0.00, "molar_vol_cm3": 88.9, "logP": 2.13,
     },
     "carbon tetrachloride": {
         "alpha": 0.00, "beta": 0.10, "pi_star": 0.28, "ET30": 32.4,
         "epsilon": 2.24, "viscosity_cP": 0.97, "bp_C": 76.7,
+        "mw": 153.82, "density_g_mL": 1.594, "refractive_index": 1.460, "dipole_D": 0.00, "molar_vol_cm3": 96.5, "logP": 2.83,
     },
     "dioxane": {
         "alpha": 0.00, "beta": 0.37, "pi_star": 0.55, "ET30": 36.0,
         "epsilon": 2.21, "viscosity_cP": 1.54, "bp_C": 101.1,
+        "mw": 88.11, "density_g_mL": 1.034, "refractive_index": 1.422, "dipole_D": 0.00, "molar_vol_cm3": 85.2, "logP": -0.27,
     },
     "pyridine": {
         "alpha": 0.00, "beta": 0.64, "pi_star": 0.87, "ET30": 40.5,
         "epsilon": 12.3, "viscosity_cP": 0.94, "bp_C": 115.3,
+        "mw": 79.10, "density_g_mL": 0.982, "refractive_index": 1.510, "dipole_D": 2.22, "molar_vol_cm3": 80.6, "logP": 0.65,
     },
     "1-methyl-pyrrolidin-2-one": {
         "alpha": 0.00, "beta": 0.77, "pi_star": 0.92, "ET30": 42.2,
         "epsilon": 32.2, "viscosity_cP": 1.67, "bp_C": 202.0,
+        "mw": 99.13, "density_g_mL": 1.028, "refractive_index": 1.470, "dipole_D": 4.09, "molar_vol_cm3": 96.4, "logP": -0.54,
     },
     "difluoromethane": {
         "alpha": 0.05, "beta": 0.05, "pi_star": 0.40, "ET30": 35.0,
         "epsilon": 14.2, "viscosity_cP": 0.12, "bp_C": -51.6,
+        "mw": 52.02, "density_g_mL": 1.100, "refractive_index": 1.195, "dipole_D": 1.97, "molar_vol_cm3": 47.3, "logP": 0.20,
     },
     "dimethyl sulfoxide": {
         "alpha": 0.00, "beta": 0.76, "pi_star": 1.00, "ET30": 45.1,
         "epsilon": 46.7, "viscosity_cP": 1.99, "bp_C": 189.0,
+        "mw": 78.13, "density_g_mL": 1.100, "refractive_index": 1.479, "dipole_D": 3.96, "molar_vol_cm3": 71.0, "logP": -1.35,
     },
     "methyl tert-butyl ether": {
         "alpha": 0.00, "beta": 0.55, "pi_star": 0.27, "ET30": 34.7,
         "epsilon": 4.50, "viscosity_cP": 0.36, "bp_C": 55.2,
+        "mw": 88.15, "density_g_mL": 0.741, "refractive_index": 1.369, "dipole_D": 1.32, "molar_vol_cm3": 118.9, "logP": 0.94,
     },
     "2-methyltetrahydrofuran": {
         "alpha": 0.00, "beta": 0.53, "pi_star": 0.53, "ET30": 36.5,
         "epsilon": 6.97, "viscosity_cP": 0.47, "bp_C": 80.0,
+        "mw": 86.13, "density_g_mL": 0.855, "refractive_index": 1.406, "dipole_D": 1.38, "molar_vol_cm3": 100.7, "logP": 0.96,
     },
     "nitromethane": {
         "alpha": 0.22, "beta": 0.06, "pi_star": 0.85, "ET30": 46.3,
         "epsilon": 35.9, "viscosity_cP": 0.63, "bp_C": 101.2,
+        "mw": 61.04, "density_g_mL": 1.137, "refractive_index": 1.382, "dipole_D": 3.46, "molar_vol_cm3": 53.7, "logP": -0.35,
     },
     "1,4-dioxane": {
         "alpha": 0.00, "beta": 0.37, "pi_star": 0.55, "ET30": 36.0,
         "epsilon": 2.21, "viscosity_cP": 1.54, "bp_C": 101.1,
+        "mw": 88.11, "density_g_mL": 1.034, "refractive_index": 1.422, "dipole_D": 0.00, "molar_vol_cm3": 85.2, "logP": -0.27,
     },
     "cyclopentyl methyl ether": {
         "alpha": 0.00, "beta": 0.52, "pi_star": 0.30, "ET30": 34.8,
         "epsilon": 4.76, "viscosity_cP": 0.55, "bp_C": 106.0,
+        "mw": 100.16, "density_g_mL": 0.860, "refractive_index": 1.419, "dipole_D": 1.30, "molar_vol_cm3": 116.5, "logP": 1.29,
     },
 }
 
@@ -282,9 +314,11 @@ ACTIVATOR_CATEGORIES = [
 # Auxiliary R-group types on C4 of Evans oxazolidinone
 AUX_RGROUP_TYPES = ["benzyl", "isopropyl", "phenyl", "tert_butyl", "methyl", "indanyl", "other"]
 
-# Solvent feature column names (for the 8d encoding)
+# Solvent feature column names (14d: 8d original + 6d Amar/Sigman 2019 descriptors)
 SOLVENT_FEATURE_NAMES = [
     "solvent_alpha", "solvent_beta", "solvent_pi_star", "solvent_ET30",
     "solvent_epsilon", "solvent_viscosity", "solvent_bp",
     "solvent_known",
+    "solvent_mw", "solvent_density", "solvent_refractive_index",
+    "solvent_dipole", "solvent_molar_vol", "solvent_logP",
 ]
