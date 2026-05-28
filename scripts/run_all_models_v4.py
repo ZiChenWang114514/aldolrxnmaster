@@ -230,13 +230,11 @@ def main():
     logger.info(f"Target: {TARGET_LABEL}")
     logger.info(f"Data: {len(y_full)} total rows, {valid_mask.sum()} valid, {X_all.shape[1]} features")
 
-    # Build index mapping: valid rows only
-    valid_indices = set(np.where(valid_mask)[0])
-    y = y_full.copy()
-    y[~valid_mask] = -1  # placeholder for invalid rows
-    y = y.astype(int)
-    n_classes = len(np.unique(y[valid_mask]))
-    logger.info(f"Classes: {n_classes}, dist: {dict(zip(*np.unique(y[valid_mask], return_counts=True)))}")
+    y = np.where(valid_mask, y_full, -1).astype(int)
+    y_valid = y[valid_mask]
+    n_classes = len(np.unique(y_valid))
+    logger.info(f"Classes: {n_classes}, dist: {dict(zip(*np.unique(y_valid, return_counts=True)))}")
+    label_suffix = "_sa" if TARGET_LABEL == "label_joint_sa" else ""
 
     # Load splits
     split_files = sorted(SPLITS_DIR.glob("*.json"))
@@ -274,14 +272,16 @@ def main():
         X = feat_loader(X_all, y, feat_names)
         logger.info(f"  Features: {X.shape[1]}d")
 
-        sa_suffix = "sa_" if TARGET_LABEL == "label_joint_sa" else ""
-        out_dir = PRED_DIR / f"{sa_suffix}{category}"
+        out_dir = PRED_DIR / f"{label_suffix}{category}"
         out_dir.mkdir(parents=True, exist_ok=True)
 
         for split_name, split_data in splits.items():
-            tr = np.array([i for i in split_data["train"] if i in valid_indices], dtype=int)
-            va = np.array([i for i in split_data.get("val", []) if i in valid_indices], dtype=int)
-            te = np.array([i for i in split_data["test"] if i in valid_indices], dtype=int)
+            tr_raw = np.array(split_data["train"], dtype=int)
+            tr = tr_raw[valid_mask[tr_raw]]
+            va_raw = np.array(split_data.get("val", []), dtype=int)
+            va = va_raw[valid_mask[va_raw]] if len(va_raw) > 0 else np.array([], dtype=int)
+            te_raw = np.array(split_data["test"], dtype=int)
+            te = te_raw[valid_mask[te_raw]]
 
             if len(va) == 0:
                 va = tr[-max(1, len(tr) // 10):]
@@ -332,8 +332,7 @@ def main():
 
     # Save results table
     results_df = pd.DataFrame(all_results)
-    suffix = "_sa" if TARGET_LABEL == "label_joint_sa" else ""
-    table_path = PROJECT / "results" / "tables" / f"benchmark_v4{suffix}.csv"
+    table_path = PROJECT / "results" / "tables" / f"benchmark_v4{label_suffix}.csv"
     table_path.parent.mkdir(parents=True, exist_ok=True)
     results_df.to_csv(table_path, index=False)
     logger.info(f"\nSaved results to {table_path}")

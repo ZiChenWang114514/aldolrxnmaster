@@ -743,12 +743,13 @@ def main():
     # 3D dihedral-based syn/anti and RS-SynAnti 4-class label
     if "label_syn_anti_3d" in df.columns:
         labels["label_syn_anti_3d"] = df["label_syn_anti_3d"].values
-        labels["label_joint_sa"] = labels.apply(
-            lambda r: int(r["label_Ca"]) * 2 + int(r["label_syn_anti_3d"])
-            if pd.notna(r["label_Ca"]) and pd.notna(r["label_syn_anti_3d"]) else None,
-            axis=1,
+        both_valid = labels["label_Ca"].notna() & labels["label_syn_anti_3d"].notna()
+        labels["label_joint_sa"] = np.where(
+            both_valid,
+            labels["label_Ca"].astype("Int64") * 2 + labels["label_syn_anti_3d"].astype("Int64"),
+            pd.NA,
         )
-        n_valid = labels["label_joint_sa"].notna().sum()
+        n_valid = int(both_valid.sum())
         print(f"  label_joint_sa: {n_valid}/{len(labels)} valid ({len(labels)-n_valid} NaN)")
     labels.to_csv(FEAT_DIR / "labels.csv", index=False)
 
