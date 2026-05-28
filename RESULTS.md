@@ -13,9 +13,25 @@
 **无泄漏**: role-aware group_id, DRFP 已排除, 手性特征仅从酮 SMILES 提取
 **3D syn/anti**: step08b 二面角法计算 label_syn_anti_3d（98.7% 成功率），仅作分析标签
 
-### Champion: v4b_full_et (TSCV = 0.624, Scaffold = 0.613)
+### Champion: ma_bw_xgb_optuna (TSCV = 0.666, Optuna-tuned)
 
-### 完整排名
+### Optuna-Tuned Models (2026-05-28)
+
+Optuna 200 trials per model, optimized on TSCV balanced accuracy:
+
+| Rank | Model | Category | Dim | TSCV mean±std | Scaffold | Grouped mean±std |
+|------|-------|----------|-----|---------------|----------|-----------------|
+| 1 | **ma_bw_xgb_optuna** | optuna | 156d | **0.666±0.029** | 0.593 | 0.740±0.017 |
+| 2 | et_optuna | optuna | 128d | 0.638±0.040 | 0.594 | 0.759±0.023 |
+| 3 | xgb_optuna | optuna | 128d | 0.628±0.046 | **0.618** | **0.763±0.025** |
+
+Key Optuna findings:
+- **Low learning rate**: XGB lr=0.015, MA-BW lr=0.01 (defaults were 0.05-0.15) — strong overfitting reduction
+- **High gamma regularization**: gamma ≈ 0.8-0.9 (default 0.1) — stricter split penalty
+- **Lower feature sampling**: colsample_bytree 0.35-0.50 (default 0.6-0.7)
+- **ET max_features=0.3**: vs default sqrt(≈0.09), features have strong interaction effects
+
+### Default Models (V4d baseline)
 
 | Rank | Model | Category | Dim | TSCV mean±std | Scaffold | Grouped mean±std |
 |------|-------|----------|-----|---------------|----------|-----------------|
@@ -44,13 +60,13 @@
 
 **分析**: 新增 46 行（保护 OH 模板扩展）后 ma_bw_xgb 轻微下降（-0.021 TSCV），v4b_full_et 轻微上升（+0.003），总体在正常波动范围内。V4d 冠军由 ExtraTrees 128d 夺得，MechAware BW 在 Grouped 上仍最强。
 
-### V4 → V4d 改进历程
+### V4 → V4d-Optuna 改进历程
 
-| 指标 | V4 (84d) | V4b (120d) | V4c (128d) | V4d (128d, 2334行) | 总提升 |
-|------|----------|-----------|-----------|-------------------|--------|
-| TSCV champion | 0.507 | 0.565 | 0.625 | **0.624** | **+23.1%** |
-| Grouped champion | 0.662 | 0.694 | 0.773 | **0.752** | **+13.6%** |
-| Scaffold champion | 0.480 | 0.513 | 0.607 | **0.613** | **+27.7%** |
+| 指标 | V4 (84d) | V4b (120d) | V4c (128d) | V4d default | V4d Optuna | 总提升 |
+|------|----------|-----------|-----------|------------|-----------|--------|
+| TSCV champion | 0.507 | 0.565 | 0.625 | 0.624 | **0.666** | **+31.4%** |
+| Grouped champion | 0.662 | 0.694 | 0.773 | 0.752 | **0.763** | **+15.3%** |
+| Scaffold champion | 0.480 | 0.513 | 0.607 | 0.613 | **0.618** | **+28.7%** |
 
 ### 新增特征 (44d over V4 baseline)
 
@@ -69,18 +85,42 @@
 
 | 对比 | TSCV | 说明 |
 |------|------|------|
-| 128d 全特征 (ET) | **0.624** | V4d 冠军 |
+| 128d 全特征 (ET) | **0.624** | V4d default 冠军 |
 | MechAware-BW (XGB) | 0.604 | Grouped 最强 (0.752) |
 | 84d 无手性 (XGB) | 0.528 | ≈ V4 baseline |
 | 仅 7d 手性 (XGB) | 0.401 | 7 个特征已远超随机 |
 
+### Per-Auxiliary Performance (化学空间审计, 2026-05-28)
+
+使用 v4b_full_et 默认参数在全 TSCV 上的 per-auxiliary 分层结果:
+
+| 辅基类型 | n_test | bal_acc | simple_acc | 评价 |
+|----------|--------|---------|------------|------|
+| **Evans** | 1339 | **0.771** | 0.789 | 优秀 |
+| Crimmins thione | 377 | 0.453 | 0.414 | 中等 |
+| Crimmins oxathione | 70 | 0.350 | 0.286 | 差 |
+| Oppolzer | 108 | 0.371 | 0.315 | 差 |
+| Other | 238 | 0.266 | 0.214 | 接近随机 |
+
+TSCV 距离-精度相关: r = **-0.916**（几乎完美负相关）
+
+### Stacking 实验 (2026-05-28)
+
+| 方法 | TSCV | Scaffold | Grouped |
+|------|------|----------|---------|
+| Stacking (ET+XGB+MA-BW→LR) | 0.617 | 0.577 | 0.741 |
+| Level-1 OOF-LR (理想 bound) | **0.660** | — | — |
+
+简单 stacking 未提升（inner-val 20% 数据量不足训练 meta-learner）。
+
 ### 关键发现
 
-1. **ExtraTrees 最稳定**: ET (0.624 TSCV, 0.613 scaffold) 在所有 OOD 指标上最均衡
-2. **MechAware BW 在 Grouped 最强**: 0.752（同分布最优），但 TSCV 0.604 低于 ET
+1. **Optuna 大幅提升 TSCV**: ma_bw_xgb 0.604→0.666 (+10.3%)，默认超参严重过拟合
+2. **Evans 单独 0.771**: 辅基异质性是整体性能瓶颈（0.624 vs Evans-only 0.771）
 3. **辅基手性是关键缺失**: 加入 7d 手性特征后 condaux 从 0.243→0.436 (+79%)
 4. **Steric 仍是核心**: steronly_xgb (0.542) 仍远超 condaux (0.436)，3D 结构不可或缺
 5. **3D syn/anti 不是 CIP**: label_SA vs label_syn_anti_3d 一致率仅 45.6%
+6. **化学距离决定性能**: TSCV distance-accuracy r=-0.916
 
 ### V3 → V4 数据变化说明
 

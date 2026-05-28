@@ -108,8 +108,11 @@ V4 TSCV=0.624 是 balanced acc（更严格），因此 V4 实际上显著优于 
 
 ## 进行中
 
-- [ ] **RS-SynAnti 实验收尾**: `run_all_models_v4.py` TARGET_LABEL 需从 `label_joint_sa` 改回 `label_joint`
-- [ ] **Evans-only V4d 基准**: 用 1654 行 Evans 数据单独跑，直接对比 V3 Evans-only 性能
+- [x] **RS-SynAnti 实验收尾**: TARGET_LABEL 已回 `label_joint`
+- [x] **Evans-only V4d 基准**: Evans per-auxiliary bal_acc=0.771（化学空间审计确认）
+- [x] **Optuna 超参搜索**: 3 models × 200 trials → ma_bw_xgb TSCV 0.604→0.666
+- [x] **Ensemble Stacking**: TSCV=0.617（未提升），OOF-LR bound=0.660
+- [x] **化学空间审计**: PCA + k-means + per-auxiliary + scaffold + TSCV distance
 
 ---
 
@@ -555,7 +558,8 @@ v3_original/                    V3 原始文件（只读参考）
 | V4 | 2025 | 2288 | 0.507 | +22% vs V3 | 84d 特征，ExtraTrees |
 | V4b | 2025 | 2288 | 0.565 | +11% | +手性(7d)+Rgroup(8d) |
 | V4c | 2025 | 2288 | 0.625 | +11% | +ChiralEnv(21d)+AldPri(8d)+MechAware |
-| V4d | 2026-05-27 | **2334** | **0.624** | ≈ V4c | +46行(保护OH)+3D syn/anti 标签 |
+| V4d | 2026-05-27 | **2334** | 0.624 | ≈ V4c | +46行(保护OH)+3D syn/anti 标签 |
 | V4d-SA | 2026-05-27 | 2304 | 0.423 | — | RS-SynAnti 实验，已放弃 |
-| Evans-V4d | TODO (P1.1) | 1654 | TBD ~0.67 | — | Evans 独立基准 |
-| V5 Stacking | TODO (P1.3) | 2334 | TBD ~0.645 | — | 3模型 ensemble |
+| V4d Stacking | 2026-05-28 | 2334 | 0.617 | — | ET+XGB+MA-BW→LR，未提升 |
+| **V4d Optuna** | 2026-05-28 | **2334** | **0.666** | **+6.7%** | ma_bw_xgb_optuna 🏆 新冠军 |
+| Evans-only | 2026-05-28 | 1654 | 0.771 | — | per-auxiliary 分层（非独立模型） |
