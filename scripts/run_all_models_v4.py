@@ -27,7 +27,7 @@ SPLITS_DIR = PROJECT / "data" / "splits_v4"
 PRED_DIR = PROJECT / "results" / "predictions_v4"
 
 # Target label: "label_joint" (RS-RS, 4-class CIP) or "label_joint_sa" (RS-SynAnti, 4-class)
-TARGET_LABEL = "label_joint_sa"
+TARGET_LABEL = "label_joint"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("benchmark_v4")
