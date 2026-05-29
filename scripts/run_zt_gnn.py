@@ -48,7 +48,9 @@ logger = logging.getLogger("zt_gnn")
 
 def load_evans_data():
     """Load Evans ZT graphs + labels + splits."""
-    meta = pd.read_csv(CLEAN_DIR / "substrate_aldol_clean.csv")
+    from chiralaldol.config import VALID_AUXILIARIES
+    meta_full = pd.read_csv(CLEAN_DIR / "substrate_aldol_clean.csv")
+    meta = meta_full[meta_full["auxiliary_type"].isin(VALID_AUXILIARIES)].reset_index(drop=True)
     _, y_all, valid_mask, feat_names = prepare_Xy()
     X_153d, _ = pd.read_csv(FEAT_DIR / "v4_features.csv").values.astype(np.float32), None
     np.nan_to_num(X_153d, copy=False)
@@ -261,6 +263,15 @@ def main():
                 "n_backbone_layers": 3, "n_chiral_layers": 2,
                 "n_classes": 4, "dropout": 0.2, "global_feat_dim": global_feat_dim,
             }
+        elif model_name in ("ZT-ComENet", "ZT-Hybrid"):
+            model_kwargs = {
+                "node_dim": 20, "edge_dim": 5, "hidden_dim": args.hidden,
+                "n_layers": args.layers, "n_classes": 4,
+                "dropout": 0.2, "global_feat_dim": global_feat_dim,
+                "n_rbf": 16,
+            }
+            if model_name == "ZT-Hybrid":
+                model_kwargs["spms_dim"] = 16
         else:
             model_kwargs = {
                 "node_dim": 20, "edge_dim": 5, "hidden_dim": args.hidden,

@@ -28,6 +28,10 @@ from chiralaldol.spms import (
     find_alpha_carbon,
     find_aldehyde_carbon,
 )
+from chiralaldol.face_steric_map import (
+    compute_face_maps_ensemble,
+    extract_face_map_features,
+)
 
 CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
 CONF_DIR = FEAT_DIR / "conformers"
@@ -207,9 +211,58 @@ def phase_b_compress(method="autoencoder", latent_dim=16):
     return latent
 
 
+def phase_c_face_maps():
+    """Compute face steric maps for all ketone molecules."""
+    logger.info("=" * 60)
+    logger.info("Phase C: Computing Face Steric Maps")
+    logger.info("=" * 60)
+
+    SPMS_DIR.mkdir(parents=True, exist_ok=True)
+
+    with open(CONF_DIR / "ketone_conformers.pkl", "rb") as f:
+        ketone_confs = pickle.load(f)
+
+    logger.info(f"Computing face maps for {len(ketone_confs)} ketones...")
+
+    face_map_data = {}
+    n_found = 0
+    for smi, ens in ketone_confs.items():
+        mol = ens["mol"]
+        si, re = compute_face_maps_ensemble(mol, ens["representatives"])
+        if si is not None:
+            face_map_data[smi] = {"si": si, "re": re}
+            n_found += 1
+
+    logger.info(f"Face maps computed: {n_found}/{len(ketone_confs)} ({100*n_found/len(ketone_confs):.1f}%)")
+
+    with open(SPMS_DIR / "face_maps.pkl", "wb") as f:
+        pickle.dump(face_map_data, f)
+
+    # Extract flat features for tree models
+    df_full = pd.read_csv(CLEAN_CSV)
+    df = df_full[df_full["auxiliary_type"].isin(VALID_AUXILIARIES)].reset_index(drop=True)
+
+    rows = []
+    for i in range(len(df)):
+        ksmi = df.iloc[i].get("canonical_ketone_smiles", "")
+        if ksmi in face_map_data:
+            feats = extract_face_map_features(
+                face_map_data[ksmi]["si"], face_map_data[ksmi]["re"])
+        else:
+            feats = {k: 0.0 for k in extract_face_map_features(
+                np.zeros((10, 10)), np.zeros((10, 10))).keys()}
+        rows.append(feats)
+
+    face_df = pd.DataFrame(rows)
+    face_df.to_csv(SPMS_DIR / "face_map_features.csv", index=False)
+    logger.info(f"Saved {face_df.shape[1]}d face map features to {SPMS_DIR}")
+
+    return face_map_data
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phase", default="all", choices=["A", "B", "all"])
+    parser.add_argument("--phase", default="all", choices=["A", "B", "C", "all"])
     parser.add_argument("--method", default="autoencoder",
                         choices=["autoencoder", "pca", "stats"])
     parser.add_argument("--latent-dim", type=int, default=16)
@@ -222,6 +275,9 @@ def main():
 
     if args.phase in ("B", "all"):
         phase_b_compress(method=args.method, latent_dim=args.latent_dim)
+
+    if args.phase in ("C", "all"):
+        phase_c_face_maps()
 
     elapsed = time.time() - t0
     logger.info(f"Total time: {elapsed:.1f}s")

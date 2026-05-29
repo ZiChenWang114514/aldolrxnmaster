@@ -70,6 +70,30 @@ def load_feature_set(name):
         latent = np.load(SPMS_DIR / "spms_latent.npy")
         cols = [f"spms_{i}" for i in range(latent.shape[1])]
         df = pd.DataFrame(latent, columns=cols)
+    elif name == "face_map":
+        base = pd.read_csv(FEAT_DIR / "v4_features.csv")
+        face = pd.read_csv(SPMS_DIR / "face_map_features.csv")
+        df = pd.concat([base, face], axis=1)
+    elif name == "spms_face":
+        # SPMS stats + Face Map combined
+        base = pd.read_csv(FEAT_DIR / "v4_features.csv")
+        spms_arrays = np.load(SPMS_DIR / "spms_arrays.npy")
+        feats, names = [], []
+        for ch, ch_name in enumerate(["ket", "ald"]):
+            arr = spms_arrays[:, ch]
+            for stat_name, stat_fn in [
+                ("mean", lambda a: a.mean(axis=(1, 2))),
+                ("std", lambda a: a.std(axis=(1, 2))),
+                ("min", lambda a: a.min(axis=(1, 2))),
+                ("max", lambda a: a.max(axis=(1, 2))),
+                ("asymm", lambda a: (a[:, :5, :].mean(axis=(1, 2)) -
+                                     a[:, 5:, :].mean(axis=(1, 2)))),
+            ]:
+                feats.append(stat_fn(arr))
+                names.append(f"spms_{ch_name}_{stat_name}")
+        spms_df = pd.DataFrame(np.column_stack(feats), columns=names)
+        face = pd.read_csv(SPMS_DIR / "face_map_features.csv")
+        df = pd.concat([base, spms_df, face], axis=1)
     else:
         raise ValueError(f"Unknown feature set: {name}")
 
@@ -162,7 +186,8 @@ def main():
     parser.add_argument("--features", nargs="+",
                         default=["baseline", "spms_ae", "spms_stats"],
                         choices=["baseline", "spms_ae", "spms_pca",
-                                 "spms_stats", "spms_only"])
+                                 "spms_stats", "spms_only",
+                                 "face_map", "spms_face"])
     parser.add_argument("--models", nargs="+", default=["xgb", "et"],
                         choices=["xgb", "et", "rf"])
     parser.add_argument("--splits", default="all",

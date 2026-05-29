@@ -249,6 +249,204 @@ class ZTChiral(nn.Module):
         return self.classifier(out)
 
 
+# ═══════════════════════════ ZT-ComENet ═══════════════════════════
+
+class GaussianSmearing(nn.Module):
+    """Gaussian RBF expansion of distances."""
+
+    def __init__(self, start=0.0, stop=5.0, n_gaussians=16):
+        super().__init__()
+        offset = torch.linspace(start, stop, n_gaussians)
+        self.register_buffer("offset", offset)
+        self.coeff = -0.5 / ((stop - start) / n_gaussians) ** 2
+
+    def forward(self, dist):
+        dist = dist.unsqueeze(-1) - self.offset
+        return torch.exp(self.coeff * dist ** 2)
+
+
+class ZTComENet(nn.Module):
+    """ComENet-style 3D message passing on ZT graphs.
+
+    Replaces one-hot edge features with distance RBF + angular features
+    computed from actual 3D coordinates (data.pos).
+    """
+
+    def __init__(self, node_dim=20, edge_dim=5, hidden_dim=128,
+                 n_layers=4, n_classes=4, dropout=0.2, global_feat_dim=0,
+                 n_rbf=16, **kwargs):
+        super().__init__()
+        self.node_embed = nn.Linear(node_dim, hidden_dim)
+
+        # 3D edge feature encoder: edge_type(5) + RBF(16) + angle(4) = 25
+        edge_3d_dim = edge_dim + n_rbf + 4
+        self.edge_encoder = nn.Sequential(
+            nn.Linear(edge_3d_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+
+        self.rbf = GaussianSmearing(0.0, 8.0, n_rbf)
+
+        self.convs = nn.ModuleList()
+        self.bns = nn.ModuleList()
+        for _ in range(n_layers):
+            nn_edge = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim * hidden_dim),
+            )
+            self.convs.append(NNConv(hidden_dim, hidden_dim, nn_edge, aggr="mean"))
+            self.bns.append(nn.BatchNorm1d(hidden_dim))
+
+        clf_input = hidden_dim + global_feat_dim
+        self.classifier = nn.Sequential(
+            nn.Linear(clf_input, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, n_classes),
+        )
+        self.dropout = dropout
+
+    def _compute_3d_edge_features(self, data):
+        """Compute 3D geometric edge features from data.pos."""
+        src, dst = data.edge_index
+        pos = data.pos
+
+        # Distance
+        diff = pos[dst] - pos[src]
+        dist = diff.norm(dim=-1)
+        rbf = self.rbf(dist)  # (n_edges, n_rbf)
+
+        # Angular features: direction cosines + dihedral-like
+        direction = diff / (dist.unsqueeze(-1) + 1e-8)
+        angle_feats = torch.stack([
+            direction[:, 0],  # dx
+            direction[:, 1],  # dy
+            torch.atan2(direction[:, 1], direction[:, 0]),  # azimuthal
+            torch.acos(direction[:, 2].clamp(-1, 1)),  # polar
+        ], dim=-1)  # (n_edges, 4)
+
+        # Concatenate with original edge type features
+        edge_3d = torch.cat([data.edge_attr, rbf, angle_feats], dim=-1)
+        return self.edge_encoder(edge_3d)
+
+    def forward(self, data):
+        x = self.node_embed(data.x)
+
+        if hasattr(data, "pos") and data.pos is not None:
+            edge_attr = self._compute_3d_edge_features(data)
+        else:
+            edge_attr = self.edge_encoder(
+                torch.cat([data.edge_attr,
+                           torch.zeros(data.edge_attr.size(0), 20,
+                                       device=data.edge_attr.device)], dim=-1))
+
+        for conv, bn in zip(self.convs, self.bns):
+            x = conv(x, data.edge_index, edge_attr)
+            x = bn(x)
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+
+        out = global_mean_pool(x, data.batch)
+
+        if hasattr(data, "x_global") and data.x_global is not None:
+            out = torch.cat([out, data.x_global], dim=1)
+
+        return self.classifier(out)
+
+
+# ═══════════════════════════ ZT-Hybrid ═══════════════════════════
+
+class ZTHybrid(nn.Module):
+    """Hybrid: SPMS-enriched node features + 3D edge features.
+
+    Combines directional steric information (SPMS as node features)
+    with geometric message passing (ComENet-style 3D edges).
+    """
+
+    def __init__(self, node_dim=20, edge_dim=5, hidden_dim=128,
+                 n_layers=4, n_classes=4, dropout=0.2, global_feat_dim=0,
+                 n_rbf=16, spms_dim=16, **kwargs):
+        super().__init__()
+        # Node features: original + SPMS
+        self.node_embed = nn.Linear(node_dim + spms_dim, hidden_dim)
+
+        # 3D edge features
+        edge_3d_dim = edge_dim + n_rbf + 4
+        self.edge_encoder = nn.Sequential(
+            nn.Linear(edge_3d_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+        self.rbf = GaussianSmearing(0.0, 8.0, n_rbf)
+
+        self.convs = nn.ModuleList()
+        self.bns = nn.ModuleList()
+        for _ in range(n_layers):
+            mlp = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.BatchNorm1d(hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim),
+            )
+            self.convs.append(GINEConv(mlp, edge_dim=hidden_dim))
+            self.bns.append(nn.BatchNorm1d(hidden_dim))
+
+        clf_input = hidden_dim + global_feat_dim
+        self.classifier = nn.Sequential(
+            nn.Linear(clf_input, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, n_classes),
+        )
+        self.dropout = dropout
+
+    def _compute_3d_edge_features(self, data):
+        src, dst = data.edge_index
+        diff = data.pos[dst] - data.pos[src]
+        dist = diff.norm(dim=-1)
+        rbf = self.rbf(dist)
+        direction = diff / (dist.unsqueeze(-1) + 1e-8)
+        angle_feats = torch.stack([
+            direction[:, 0], direction[:, 1],
+            torch.atan2(direction[:, 1], direction[:, 0]),
+            torch.acos(direction[:, 2].clamp(-1, 1)),
+        ], dim=-1)
+        edge_3d = torch.cat([data.edge_attr, rbf, angle_feats], dim=-1)
+        return self.edge_encoder(edge_3d)
+
+    def forward(self, data):
+        # Concatenate SPMS features to node features
+        if hasattr(data, "spms_feat") and data.spms_feat is not None:
+            x_in = torch.cat([data.x, data.spms_feat], dim=-1)
+        else:
+            x_in = torch.cat([data.x,
+                              torch.zeros(data.x.size(0), 16,
+                                          device=data.x.device)], dim=-1)
+
+        x = self.node_embed(x_in)
+
+        if hasattr(data, "pos") and data.pos is not None:
+            edge_attr = self._compute_3d_edge_features(data)
+        else:
+            edge_attr = self.edge_encoder(
+                torch.cat([data.edge_attr,
+                           torch.zeros(data.edge_attr.size(0), 20,
+                                       device=data.edge_attr.device)], dim=-1))
+
+        for conv, bn in zip(self.convs, self.bns):
+            x = conv(x, data.edge_index, edge_attr)
+            x = bn(x)
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+
+        out = global_mean_pool(x, data.batch)
+
+        if hasattr(data, "x_global") and data.x_global is not None:
+            out = torch.cat([out, data.x_global], dim=1)
+
+        return self.classifier(out)
+
+
 # ═══════════════════════════ Model Registry ═══════════════════════════
 
 from .chidek import ZTChiDeK
@@ -260,4 +458,6 @@ ZT_MODELS = {
     "ZT-Chiral": ZTChiral,
     "ZT-ChiDeK": ZTChiDeK,
     "ZT-GCPNet": ZTGCPNet,
+    "ZT-ComENet": ZTComENet,
+    "ZT-Hybrid": ZTHybrid,
 }
