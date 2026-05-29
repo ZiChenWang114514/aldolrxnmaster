@@ -1,23 +1,23 @@
 {
   "model": "ma_bw_xgb_optuna",
-  "best_tscv": 0.6735,
+  "best_tscv": 0.6656,
   "fold_scores": [
-    0.649,
-    0.6873,
-    0.7131,
-    0.6446
+    0.6295,
+    0.6862,
+    0.7096,
+    0.637
   ],
-  "mean": 0.6735,
-  "std": 0.0283,
+  "mean": 0.6656,
+  "std": 0.0335,
   "best_params": {
     "n_estimators": 100,
     "max_depth": 6,
-    "learning_rate": 0.010279649243478791,
-    "subsample": 0.787554656025627,
-    "colsample_bytree": 0.5008982473949792,
-    "gamma": 0.7680076984606345,
-    "reg_lambda": 0.7056862519483365,
-    "reg_alpha": 0.0005149796022833027,
+    "learning_rate": 0.010474208578094722,
+    "subsample": 0.7411104859298452,
+    "colsample_bytree": 0.5376340421014744,
+    "gamma": 0.8959366256424816,
+    "reg_lambda": 0.1672285731991521,
+    "reg_alpha": 0.00023067504347408163,
     "min_child_weight": 1
   },
   "n_trials": 200
