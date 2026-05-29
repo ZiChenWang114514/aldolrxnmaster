@@ -1,0 +1,6 @@
+model,split,bal_acc,n_train,n_test
+ChiENN,grouped_seed1024,0.4667,994,332
+ChiENN,grouped_seed123,0.4375,1023,288
+ChiENN,grouped_seed42,0.3352,998,318
+ChiENN,grouped_seed456,0.4546,954,323
+ChiENN,grouped_seed789,0.4047,961,348

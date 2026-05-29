@@ -1,0 +1,47 @@
+2026-05-28 22:06:37,193 [INFO] ======================================================================
+2026-05-28 22:06:37,193 [INFO] Optuna-Tuned Full Benchmark
+2026-05-28 22:06:37,193 [INFO] ======================================================================
+2026-05-28 22:06:37,280 [INFO] 
+--- et_optuna ---
+2026-05-28 22:06:55,424 [INFO]   TSCV: 0.6420 ± 0.0516
+2026-05-28 22:06:55,424 [INFO]   Scaffold: 0.5829
+2026-05-28 22:06:55,424 [INFO]   Grouped: 0.7295 ± 0.0294
+2026-05-28 22:06:55,424 [INFO] 
+--- xgb_optuna ---
+2026-05-28 22:07:08,997 [INFO]   TSCV: 0.6380 ± 0.0522
+2026-05-28 22:07:08,997 [INFO]   Scaffold: 0.6118
+2026-05-28 22:07:08,997 [INFO]   Grouped: 0.7597 ± 0.0266
+2026-05-28 22:07:08,997 [INFO] 
+--- ma_bw_xgb_optuna ---
+2026-05-28 22:07:16,303 [INFO]   TSCV: 0.6568 ± 0.0543
+2026-05-28 22:07:16,303 [INFO]   Scaffold: 0.5929
+2026-05-28 22:07:16,303 [INFO]   Grouped: 0.7517 ± 0.0203
+
+
+================================================================================
+OPTUNA-TUNED BENCHMARK SUMMARY
+================================================================================
+
+  et_optuna:
+    TSCV:     0.6420 ± 0.0516
+    Scaffold: 0.5829
+    Grouped:  0.7295 ± 0.0294
+
+  xgb_optuna:
+    TSCV:     0.6380 ± 0.0522
+    Scaffold: 0.6118
+    Grouped:  0.7597 ± 0.0266
+
+  ma_bw_xgb_optuna:
+    TSCV:     0.6568 ± 0.0543
+    Scaffold: 0.5929
+    Grouped:  0.7517 ± 0.0203
+
+  --- Baselines ---
+  v4b_full_et (default): TSCV=0.624, Scaffold=0.613, Grouped=0.738
+  ma_bw_xgb (default): TSCV=0.604, Scaffold=0.607, Grouped=0.752
+  v4b_full_xgb (default): TSCV=0.602, Scaffold=0.589, Grouped=0.747
+
+Total time: 39.1s
+Results: /data2/zcwang/aldolrxnmaster/results/tables/benchmark_v4_optuna.csv
+

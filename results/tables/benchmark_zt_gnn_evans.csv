@@ -1,0 +1,11 @@
+model,split,bal_acc,n_train,n_test
+ZT-ChiDeK,grouped_seed1024,0.7207,1038,340
+ZT-ChiDeK,grouped_seed123,0.7926,1056,304
+ZT-ChiDeK,grouped_seed42,0.7911,1039,331
+ZT-ChiDeK,grouped_seed456,0.7542,994,336
+ZT-ChiDeK,grouped_seed789,0.7618,996,360
+ZT-ChiDeK,scaffold,0.6312,675,861
+ZT-ChiDeK,tscv_fold1,0.6507,710,618
+ZT-ChiDeK,tscv_fold2,0.7848,923,418
+ZT-ChiDeK,tscv_fold3,0.7004,1103,198
+ZT-ChiDeK,tscv_fold4,0.8923,1301,90
