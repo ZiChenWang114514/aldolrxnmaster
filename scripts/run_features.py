@@ -41,6 +41,7 @@ _AUX_C4_SMARTS = {
     "crimmins_thione":    "[C:1]1([*])CSC(=S)N1",
     "crimmins_oxathione": "[C:1]1([*])COC(=S)N1",
     "super_quat":         "[C:1]1([*])([*])COC(=O)N1",
+    "oppolzer":           "[C:1]1([*])[C][C]S(=O)(=O)N1",  # 5-membered sultam ring
 }
 _AUX_C4_PATS = {k: Chem.MolFromSmarts(v) for k, v in _AUX_C4_SMARTS.items()}
 
@@ -221,18 +222,21 @@ def _extract_chirality_one(ketone_smi, aux_type: str) -> dict:
         elif cip == "S":
             feat["chiral_aux_c4_R"] = 0.0
     elif defined:
-        # Fallback for Oppolzer/Myers: use nearest defined stereocenter
-        feat["chiral_aux_c4_R"] = 1.0 if defined[0][1] == "R" else 0.0
+        # Fallback: mark as unknown (-1) rather than using an arbitrary stereocenter.
+        # Using the first-found stereocenter injects noise (wrong center picked).
+        feat["chiral_aux_c4_R"] = -1.0
+        feat["chiral_aux_c4_match"] = 0.0
 
     return feat
 
 
 def compute_rgroup_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute 8d R-group + Oppolzer one-hot features from ketone SMILES.
+    """Compute 7d R-group features from ketone SMILES.
 
     Features:
       aux_rg_benzyl, aux_rg_isopropyl, aux_rg_phenyl, aux_rg_tert_butyl,
-      aux_rg_methyl, aux_rg_indanyl, aux_rg_other, aux_oppolzer
+      aux_rg_methyl, aux_rg_indanyl, aux_rg_other
+    Note: aux_oppolzer moved to auxiliary one-hot (compute_auxiliary_features).
     """
     print("Computing R-group features from ketone SMILES...")
     rg_names = ["benzyl", "isopropyl", "phenyl", "tert_butyl", "methyl", "indanyl", "other"]
@@ -241,7 +245,6 @@ def compute_rgroup_features(df: pd.DataFrame) -> pd.DataFrame:
         ksmi = row.get("canonical_ketone_smiles")
         aux_type = row.get("auxiliary_type", "")
         feat = {f"aux_rg_{rg}": 0 for rg in rg_names}
-        feat["aux_oppolzer"] = 1 if aux_type == "oppolzer" else 0
 
         if not isinstance(ksmi, str) or not ksmi.strip():
             rows.append(feat)
@@ -739,7 +742,7 @@ def compute_chiral_determinant(df: pd.DataFrame) -> pd.DataFrame:
 
 def compute_auxiliary_features(df: pd.DataFrame) -> pd.DataFrame:
     """Compute auxiliary one-hot features (6d, unchanged for backward compat)."""
-    aux_types = ["evans", "crimmins_thione", "crimmins_oxathione", "other_auxiliary", "myers"]
+    aux_types = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer", "other_auxiliary", "myers"]
     aux_feats = {}
     for atype in aux_types:
         col_name = f"aux_{atype}"
