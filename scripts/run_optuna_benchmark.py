@@ -21,44 +21,13 @@ from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
 from sklearn.utils.class_weight import compute_sample_weight
 
-PROJECT = Path(__file__).resolve().parent.parent
-FEAT_DIR = PROJECT / "data" / "features_v4"
-SPLITS_DIR = PROJECT / "data" / "splits_v4"
-PRED_DIR = PROJECT / "results" / "predictions_v4"
-OPTUNA_DIR = PROJECT / "results" / "optuna"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-TARGET_LABEL = "label_joint"
+from chiralaldol.config import N_CLASSES, N_JOBS, OPTUNA_DIR, PRED_DIR, RESULTS_DIR
+from chiralaldol.data_io import load_mechaware_bw, load_splits, prepare_Xy
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("optuna_bench")
-
-
-def load_data():
-    X_df = pd.read_csv(FEAT_DIR / "v4_features.csv")
-    labels = pd.read_csv(FEAT_DIR / "labels.csv")
-    feat_names = list(X_df.columns)
-
-    valid_mask = labels[TARGET_LABEL].notna().values
-    y_full = labels[TARGET_LABEL].values
-    X_v4b = X_df.values.astype(np.float32)
-    np.nan_to_num(X_v4b, copy=False)
-    y = np.where(valid_mask, y_full, -1).astype(int)
-
-    # MechAware BW
-    bw_path = FEAT_DIR / "v4_mechaware_bw.csv"
-    X_bw = pd.read_csv(bw_path).values.astype(np.float32)
-    np.nan_to_num(X_bw, copy=False)
-    new_idx = [i for i, c in enumerate(feat_names)
-               if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_",
-                                "ald_pri_", "delta_chiral_", "chiral_det_"))]
-    X_ma = np.hstack([X_bw, X_v4b[:, new_idx]])
-
-    splits = {}
-    for f in sorted(SPLITS_DIR.glob("*.json")):
-        with open(f) as fp:
-            splits[f.stem] = json.load(fp)
-
-    return X_v4b, X_ma, y, valid_mask, feat_names, splits
 
 
 def main():
@@ -67,7 +36,11 @@ def main():
     logger.info("Optuna-Tuned Full Benchmark")
     logger.info("=" * 70)
 
-    X_v4b, X_ma, y, valid_mask, feat_names, splits = load_data()
+    X_v4b, y, valid_mask, feat_names = prepare_Xy()
+    X_ma = load_mechaware_bw(feat_names=feat_names)
+    if X_ma is None:
+        X_ma = X_v4b
+    splits = load_splits()
 
     # Load Optuna best params
     with open(OPTUNA_DIR / "et_optuna_best.json") as f:
@@ -129,7 +102,7 @@ def main():
             # Save predictions
             out = pd.DataFrame({"idx": te, "y_true": y[te], "y_pred": y_pred})
             if y_prob is not None:
-                for c in range(min(4, y_prob.shape[1])):
+                for c in range(min(N_CLASSES, y_prob.shape[1])):
                     out[f"prob_{c}"] = y_prob[:, c]
             out.to_csv(out_dir / f"{model_key}_{split_name}.csv", index=False)
 
@@ -153,7 +126,7 @@ def main():
 
     # Save results
     results_df = pd.DataFrame(all_results)
-    table_path = PROJECT / "results" / "tables" / "benchmark_v4_optuna.csv"
+    table_path = RESULTS_DIR / "tables" / "benchmark_v4_optuna.csv"
     results_df.to_csv(table_path, index=False)
 
     # Summary table
@@ -182,7 +155,7 @@ def main():
         print(f"    Scaffold: {s_val:.4f}" if scaffold else "")
         print(f"    Grouped:  {g_mean:.4f} ± {np.std(grouped):.4f}" if grouped else "")
 
-    print(f"\n  --- Baselines ---")
+    print("\n  --- Baselines ---")
     for name, vals in baselines.items():
         print(f"  {name}: TSCV={vals['TSCV']}, Scaffold={vals['Scaffold']}, Grouped={vals['Grouped']}")
 
@@ -193,7 +166,7 @@ def main():
 
 def _train_et(X_tr, y_tr, params):
     p = dict(params)
-    p.update({"class_weight": "balanced", "random_state": 42, "n_jobs": 8})
+    p.update({"class_weight": "balanced", "random_state": 42, "n_jobs": N_JOBS})
     m = ExtraTreesClassifier(**p)
     m.fit(X_tr, y_tr)
     return m
@@ -201,8 +174,8 @@ def _train_et(X_tr, y_tr, params):
 
 def _train_xgb(X_tr, y_tr, params):
     p = dict(params)
-    p.update({"objective": "multi:softprob", "num_class": 4,
-              "tree_method": "hist", "random_state": 42, "n_jobs": 8, "verbosity": 0})
+    p.update({"objective": "multi:softprob", "num_class": N_CLASSES,
+              "tree_method": "hist", "random_state": 42, "n_jobs": N_JOBS, "verbosity": 0})
     sw = compute_sample_weight("balanced", y_tr)
     m = xgb.XGBClassifier(**p)
     m.fit(X_tr, y_tr, sample_weight=sw)

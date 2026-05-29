@@ -21,13 +21,12 @@ import xgboost as xgb
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
 
-PROJECT = Path(__file__).resolve().parent.parent
-FEAT_DIR = PROJECT / "data" / "features_v4"
-SPLITS_DIR = PROJECT / "data" / "splits_v4"
-OPTUNA_DIR = PROJECT / "results" / "optuna"
-OUT_DIR = PROJECT / "results" / "shap"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-TARGET_LABEL = "label_joint"
+from chiralaldol.config import OPTUNA_DIR, RESULTS_DIR, SPLITS_DIR
+from chiralaldol.data_io import prepare_Xy
+
+OUT_DIR = RESULTS_DIR / "shap"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("shap_analysis")
@@ -42,13 +41,7 @@ def main():
     logger.info("=" * 60)
 
     # Load data
-    X_df = pd.read_csv(FEAT_DIR / "v4_features.csv")
-    labels = pd.read_csv(FEAT_DIR / "labels.csv")
-    feat_names = list(X_df.columns)
-    valid_mask = labels[TARGET_LABEL].notna().values
-    X = X_df.values.astype(np.float32)
-    np.nan_to_num(X, copy=False)
-    y = np.where(valid_mask, labels[TARGET_LABEL].values, -1).astype(int)
+    X, y, valid_mask, feat_names = prepare_Xy()
 
     logger.info(f"Features: {X.shape[1]}d, samples: {valid_mask.sum()}")
 

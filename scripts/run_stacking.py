@@ -14,7 +14,6 @@ Usage:
     conda run -n aldol-rxn python scripts/run_stacking_v4.py
 """
 
-import json
 import logging
 import sys
 import time
@@ -22,77 +21,21 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import xgboost as xgb
-from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
 
-PROJECT = Path(__file__).resolve().parent.parent
-FEAT_DIR = PROJECT / "data" / "features_v4"
-SPLITS_DIR = PROJECT / "data" / "splits_v4"
-RESULTS_DIR = PROJECT / "results" / "stacking"
-PRED_DIR = PROJECT / "results" / "predictions_v4" / "stacking"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-TARGET_LABEL = "label_joint"
+from chiralaldol.config import N_CLASSES, PRED_DIR, RESULTS_DIR
+from chiralaldol.data_io import load_mechaware_bw, load_splits, prepare_Xy
+from chiralaldol.model_trainers import train_et, train_xgb
+
+STACKING_RESULTS_DIR = RESULTS_DIR / "stacking"
+STACKING_PRED_DIR = PRED_DIR / "stacking"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("stacking_v4")
-
-
-# ═══════════════════════════ DATA LOADING ═══════════════════════════
-
-def load_data():
-    """Load V4 features, MechAware BW, labels, all splits."""
-    X_df = pd.read_csv(FEAT_DIR / "v4_features.csv")
-    labels = pd.read_csv(FEAT_DIR / "labels.csv")
-    feat_names = list(X_df.columns)
-
-    valid_mask = labels[TARGET_LABEL].notna().values
-    y_full = labels[TARGET_LABEL].values
-    X_v4b = X_df.values.astype(np.float32)
-    np.nan_to_num(X_v4b, copy=False)
-    y = np.where(valid_mask, y_full, -1).astype(int)
-
-    # MechAware BW
-    bw_path = FEAT_DIR / "v4_mechaware_bw.csv"
-    X_bw = pd.read_csv(bw_path).values.astype(np.float32) if bw_path.exists() else None
-    if X_bw is not None:
-        np.nan_to_num(X_bw, copy=False)
-        # Append chirality/rgroup/chiralenv/aldpri from V4b
-        new_idx = [i for i, c in enumerate(feat_names)
-                   if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_",
-                                "ald_pri_", "delta_chiral_", "chiral_det_"))]
-        X_ma = np.hstack([X_bw, X_v4b[:, new_idx]])
-    else:
-        X_ma = X_v4b  # fallback
-
-    # Load all splits
-    splits = {}
-    for f in sorted(SPLITS_DIR.glob("*.json")):
-        with open(f) as fp:
-            splits[f.stem] = json.load(fp)
-
-    return X_v4b, X_ma, y, valid_mask, feat_names, splits
-
-
-# ═══════════════════════════ LEVEL-0 TRAINERS ═══════════════════════════
-
-def train_et(X_tr, y_tr):
-    m = ExtraTreesClassifier(n_estimators=300, max_depth=None, random_state=42,
-                              n_jobs=8, class_weight="balanced")
-    m.fit(X_tr, y_tr)
-    return m
-
-
-def train_xgb_model(X_tr, y_tr):
-    sw = compute_sample_weight("balanced", y_tr)
-    m = xgb.XGBClassifier(n_estimators=200, max_depth=5, learning_rate=0.1,
-                           subsample=0.8, colsample_bytree=0.7, gamma=0.1,
-                           reg_lambda=1.0, objective="multi:softprob", num_class=4,
-                           tree_method="hist", random_state=42, n_jobs=8, verbosity=0)
-    m.fit(X_tr, y_tr, sample_weight=sw)
-    return m
 
 
 # ═══════════════════════════ OOF GENERATION ═══════════════════════════
@@ -105,7 +48,7 @@ def generate_oof(X, y, valid_mask, tscv_splits, trainer_fn, model_name):
         oof_mask: boolean mask of samples that have OOF predictions
     """
     n = len(y)
-    oof_probs = np.full((n, 4), np.nan, dtype=np.float64)
+    oof_probs = np.full((n, N_CLASSES), np.nan, dtype=np.float64)
 
     for i, split in enumerate(tscv_splits):
         tr_raw = np.array(split["train"], dtype=int)
@@ -120,8 +63,8 @@ def generate_oof(X, y, valid_mask, tscv_splits, trainer_fn, model_name):
         probs = model.predict_proba(X[te])
 
         # Ensure 4-class probabilities
-        if probs.shape[1] < 4:
-            full_probs = np.zeros((len(te), 4))
+        if probs.shape[1] < N_CLASSES:
+            full_probs = np.zeros((len(te), N_CLASSES))
             full_probs[:, :probs.shape[1]] = probs
             probs = full_probs
 
@@ -196,7 +139,7 @@ def train_level1(oof_meta, y, oof_mask, valid_mask, tscv_splits):
 # ═══════════════════════════ FULL STACKING ON ALL SPLITS ═══════════════════════════
 
 def run_stacking_on_split(X_v4b, X_ma, y, valid_mask, split_name, split_data):
-    """Run full stacking pipeline on a single split (train→test)."""
+    """Run full stacking pipeline on a single split (train->test)."""
     tr_raw = np.array(split_data["train"], dtype=int)
     tr = tr_raw[valid_mask[tr_raw]]
     te_raw = np.array(split_data["test"], dtype=int)
@@ -215,8 +158,8 @@ def run_stacking_on_split(X_v4b, X_ma, y, valid_mask, split_name, split_data):
     # Level-0: train on inner-train, predict inner-val (OOF) and test
     l0_models = {
         "et": (X_v4b, train_et),
-        "xgb": (X_v4b, train_xgb_model),
-        "ma_bw_xgb": (X_ma, train_xgb_model),
+        "xgb": (X_v4b, train_xgb),
+        "ma_bw_xgb": (X_ma, train_xgb),
     }
 
     oof_val_list = []
@@ -249,7 +192,12 @@ def main():
     logger.info("V4 Ensemble Stacking")
     logger.info("=" * 70)
 
-    X_v4b, X_ma, y, valid_mask, feat_names, splits = load_data()
+    X_v4b, y, valid_mask, feat_names = prepare_Xy()
+    X_ma = load_mechaware_bw(feat_names=feat_names)
+    if X_ma is None:
+        X_ma = X_v4b
+    splits = load_splits()
+
     logger.info(f"V4b features: {X_v4b.shape[1]}d, MechAware: {X_ma.shape[1]}d")
     logger.info(f"Valid samples: {valid_mask.sum()}, splits: {len(splits)}")
 
@@ -259,8 +207,8 @@ def main():
 
     # Generate OOF predictions for each Level-0 model
     oof_et, mask_et = generate_oof(X_v4b, y, valid_mask, tscv_splits, train_et, "ET")
-    oof_xgb, mask_xgb = generate_oof(X_v4b, y, valid_mask, tscv_splits, train_xgb_model, "XGB")
-    oof_ma, mask_ma = generate_oof(X_ma, y, valid_mask, tscv_splits, train_xgb_model, "MA-BW-XGB")
+    oof_xgb, mask_xgb = generate_oof(X_v4b, y, valid_mask, tscv_splits, train_xgb, "XGB")
+    oof_ma, mask_ma = generate_oof(X_ma, y, valid_mask, tscv_splits, train_xgb, "MA-BW-XGB")
 
     # Combine into meta-features (12d)
     oof_combined = np.full((len(y), 12), np.nan)
@@ -286,7 +234,7 @@ def main():
     # === Part 2: Full stacking on all splits ===
     logger.info("\n--- Phase 3: Full Stacking on All Splits ---")
     all_results = []
-    PRED_DIR.mkdir(parents=True, exist_ok=True)
+    STACKING_PRED_DIR.mkdir(parents=True, exist_ok=True)
 
     for split_name, split_data in sorted(splits.items()):
         result = run_stacking_on_split(X_v4b, X_ma, y, valid_mask, split_name, split_data)
@@ -299,9 +247,9 @@ def main():
             "y_true": result["y_true"],
             "y_pred": result["y_pred"],
         })
-        for c in range(4):
+        for c in range(N_CLASSES):
             out[f"prob_{c}"] = result["y_prob"][:, c] if c < result["y_prob"].shape[1] else 0.0
-        out.to_csv(PRED_DIR / f"stacking_lr_{split_name}.csv", index=False)
+        out.to_csv(STACKING_PRED_DIR / f"stacking_lr_{split_name}.csv", index=False)
 
         all_results.append({
             "split": split_name,
@@ -311,9 +259,9 @@ def main():
         logger.info(f"  {split_name}: {result['bal_acc']:.4f} (n={result['n_test']})")
 
     # === Summary ===
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    STACKING_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     results_df = pd.DataFrame(all_results)
-    results_df.to_csv(RESULTS_DIR / "stacking_results.csv", index=False)
+    results_df.to_csv(STACKING_RESULTS_DIR / "stacking_results.csv", index=False)
 
     tscv = [r["bal_acc"] for r in all_results if "tscv" in r["split"]]
     grouped = [r["bal_acc"] for r in all_results if "grouped" in r["split"]]
@@ -322,7 +270,7 @@ def main():
     print("\n" + "=" * 70)
     print("STACKING RESULTS SUMMARY")
     print("=" * 70)
-    print(f"\n  Stacking (ET+XGB+MA-BW → LR):")
+    print("\n  Stacking (ET+XGB+MA-BW → LR):")
     if tscv:
         print(f"    TSCV:     {np.mean(tscv):.4f} ± {np.std(tscv):.4f}")
     if scaffold:
@@ -330,10 +278,10 @@ def main():
     if grouped:
         print(f"    Grouped:  {np.mean(grouped):.4f} ± {np.std(grouped):.4f}")
 
-    print(f"\n  Baselines (default hyperparams):")
-    print(f"    v4b_full_et:  TSCV=0.624, Scaffold=0.613, Grouped=0.738")
-    print(f"    ma_bw_xgb:    TSCV=0.604, Scaffold=0.607, Grouped=0.752")
-    print(f"    v4b_full_xgb: TSCV=0.602, Scaffold=0.589, Grouped=0.747")
+    print("\n  Baselines (default hyperparams):")
+    print("    v4b_full_et:  TSCV=0.624, Scaffold=0.613, Grouped=0.738")
+    print("    ma_bw_xgb:    TSCV=0.604, Scaffold=0.607, Grouped=0.752")
+    print("    v4b_full_xgb: TSCV=0.602, Scaffold=0.589, Grouped=0.747")
 
     if tscv:
         delta = np.mean(tscv) - 0.624
@@ -341,8 +289,8 @@ def main():
 
     elapsed = time.time() - t0
     print(f"\n  Total time: {elapsed:.1f}s")
-    print(f"  Results: {RESULTS_DIR}/stacking_results.csv")
-    print(f"  Predictions: {PRED_DIR}/")
+    print(f"  Results: {STACKING_RESULTS_DIR}/stacking_results.csv")
+    print(f"  Predictions: {STACKING_PRED_DIR}/")
 
 
 if __name__ == "__main__":

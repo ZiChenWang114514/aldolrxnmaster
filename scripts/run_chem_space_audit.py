@@ -16,7 +16,6 @@ Usage:
     conda run -n aldol-rxn python scripts/run_chem_space_audit.py
 """
 
-import json
 import logging
 import sys
 import time
@@ -30,14 +29,12 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.preprocessing import StandardScaler
 
-PROJECT = Path(__file__).resolve().parent.parent
-FEAT_DIR = PROJECT / "data" / "features_v4"
-SPLITS_DIR = PROJECT / "data" / "splits_v4"
-CLEAN_DIR = PROJECT / "data" / "clean_v4"
-PRED_DIR = PROJECT / "results" / "predictions_v4"
-OUT_DIR = PROJECT / "results" / "chem_space_audit"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-TARGET_LABEL = "label_joint"
+from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR
+from chiralaldol.data_io import load_splits, prepare_Xy
+
+OUT_DIR = RESULTS_DIR / "chem_space_audit"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("chem_audit")
@@ -45,21 +42,9 @@ logger = logging.getLogger("chem_audit")
 
 def load_data():
     """Load features, labels, metadata."""
-    X_df = pd.read_csv(FEAT_DIR / "v4_features.csv")
-    labels = pd.read_csv(FEAT_DIR / "labels.csv")
+    X, y, valid_mask, feat_names = prepare_Xy()
     meta = pd.read_csv(CLEAN_DIR / "substrate_aldol_clean.csv")
-
-    valid_mask = labels[TARGET_LABEL].notna().values
-    y = np.where(valid_mask, labels[TARGET_LABEL].values, -1).astype(int)
-    X = X_df.values.astype(np.float32)
-    np.nan_to_num(X, copy=False)
-    feat_names = list(X_df.columns)
-
-    splits = {}
-    for f in sorted(SPLITS_DIR.glob("*.json")):
-        with open(f) as fp:
-            splits[f.stem] = json.load(fp)
-
+    splits = load_splits()
     return X, y, valid_mask, feat_names, meta, splits
 
 
@@ -107,7 +92,7 @@ def pca_analysis(X, y, valid_mask, meta):
     )
     loadings["abs_PC1"] = loadings["PC1"].abs()
     loadings_sorted = loadings.sort_values("abs_PC1", ascending=False)
-    logger.info(f"\n  Top-10 features on PC1:")
+    logger.info("\n  Top-10 features on PC1:")
     for _, row in loadings_sorted.head(10).iterrows():
         logger.info(f"    {row.name:40s}: PC1={row['PC1']:+.3f}")
     loadings.to_csv(OUT_DIR / "pca_loadings.csv")
@@ -267,10 +252,10 @@ def scaffold_performance(y, valid_mask, meta, splits):
 
         # Top and bottom scaffolds
         scaffold_df_sorted = scaffold_df.sort_values("bal_acc")
-        logger.info(f"\n  Worst 5 scaffolds:")
+        logger.info("\n  Worst 5 scaffolds:")
         for _, row in scaffold_df_sorted.head(5).iterrows():
             logger.info(f"    {row['scaffold'][:60]:60s} n={row['n_test']:3d} acc={row['bal_acc']:.3f}")
-        logger.info(f"\n  Best 5 scaffolds:")
+        logger.info("\n  Best 5 scaffolds:")
         for _, row in scaffold_df_sorted.tail(5).iterrows():
             logger.info(f"    {row['scaffold'][:60]:60s} n={row['n_test']:3d} acc={row['bal_acc']:.3f}")
 

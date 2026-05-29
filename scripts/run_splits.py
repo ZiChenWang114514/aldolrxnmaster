@@ -16,11 +16,11 @@ from rdkit import Chem
 from rdkit.Chem.Scaffolds import MurckoScaffold
 from sklearn.model_selection import GroupShuffleSplit
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-CLEAN_CSV = PROJECT_DIR / "data" / "clean_v4" / "substrate_aldol_clean.csv"
-SPLITS_DIR = PROJECT_DIR / "data" / "splits_v4"
+from chiralaldol.config import CLEAN_DIR, SPLITS_DIR
+
+CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
 
 
 def extract_year(ref_str: str) -> int:

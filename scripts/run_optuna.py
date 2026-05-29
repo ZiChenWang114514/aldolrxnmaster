@@ -20,18 +20,15 @@ from pathlib import Path
 
 import numpy as np
 import optuna
-import pandas as pd
 import xgboost as xgb
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
 
-PROJECT = Path(__file__).resolve().parent.parent
-FEAT_DIR = PROJECT / "data" / "features_v4"
-SPLITS_DIR = PROJECT / "data" / "splits_v4"
-RESULTS_DIR = PROJECT / "results" / "optuna"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-TARGET_LABEL = "label_joint"
+from chiralaldol.config import OPTUNA_DIR, SPLITS_DIR
+from chiralaldol.data_io import load_mechaware_bw, prepare_Xy
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("optuna_v4")
@@ -44,14 +41,7 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 def load_data():
     """Load V4 features, labels, and TSCV splits."""
-    X_df = pd.read_csv(FEAT_DIR / "v4_features.csv")
-    labels = pd.read_csv(FEAT_DIR / "labels.csv")
-
-    valid_mask = labels[TARGET_LABEL].notna().values
-    y_full = labels[TARGET_LABEL].values
-    X = X_df.values.astype(np.float32)
-    np.nan_to_num(X, copy=False)
-    y = np.where(valid_mask, y_full, -1).astype(int)
+    X, y, valid_mask, _ = prepare_Xy()
 
     # Load TSCV splits only (4 folds)
     tscv_splits = []
@@ -150,28 +140,6 @@ def create_xgb_objective(X, y, valid_mask, splits):
 
 # ═══════════════════════════ MECHAWARE VARIANTS ═══════════════════════════
 
-def load_mechaware_bw_features():
-    """Load MechAware BW features + V4b chirality features."""
-    X_df = pd.read_csv(FEAT_DIR / "v4_features.csv")
-    feat_names = list(X_df.columns)
-    X_base = X_df.values.astype(np.float32)
-    np.nan_to_num(X_base, copy=False)
-
-    bw_path = FEAT_DIR / "v4_mechaware_bw.csv"
-    if not bw_path.exists():
-        logger.warning("MechAware BW not found, skipping")
-        return None
-    X_bw = pd.read_csv(bw_path).values.astype(np.float32)
-    np.nan_to_num(X_bw, copy=False)
-
-    # Append chirality/rgroup/chiralenv/aldpri/delta_chiral/chiral_det features
-    new_idx = [i for i, c in enumerate(feat_names)
-               if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_",
-                                "ald_pri_", "delta_chiral_", "chiral_det_"))]
-    X_new = X_base[:, new_idx]
-    return np.hstack([X_bw, X_new])
-
-
 def create_ma_bw_xgb_objective(X_ma, y, valid_mask, splits):
     """Optuna objective for MechAware-BW + XGBoost."""
 
@@ -209,11 +177,11 @@ def create_ma_bw_xgb_objective(X_ma, y, valid_mask, splits):
 
 def save_results(study, model_name, X, y, valid_mask, splits, model_fn_factory):
     """Save best params, retrain with best params, report per-fold scores."""
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    OPTUNA_DIR.mkdir(parents=True, exist_ok=True)
 
     # Save study results
     trials_df = study.trials_dataframe()
-    trials_df.to_csv(RESULTS_DIR / f"{model_name}_trials.csv", index=False)
+    trials_df.to_csv(OPTUNA_DIR / f"{model_name}_trials.csv", index=False)
 
     best = study.best_params
     best_val = study.best_value
@@ -252,7 +220,7 @@ def save_results(study, model_name, X, y, valid_mask, splits, model_fn_factory):
         "best_params": best,
         "n_trials": len(study.trials),
     }
-    with open(RESULTS_DIR / f"{model_name}_best.json", "w") as f:
+    with open(OPTUNA_DIR / f"{model_name}_best.json", "w") as f:
         json.dump(result, f, indent=2, default=str)
 
     return result
@@ -315,7 +283,7 @@ def main():
 
     # --- MechAware BW + XGBoost ---
     if args.model in ("ma_bw_xgb", "all"):
-        X_ma = load_mechaware_bw_features()
+        X_ma = load_mechaware_bw()
         if X_ma is not None:
             logger.info("\n>>> MechAware-BW + XGBoost optimization...")
             study_ma = optuna.create_study(direction="maximize", study_name="ma_bw_xgb_v4b")
@@ -360,7 +328,7 @@ def main():
         print(f"  {name}: TSCV = {r['mean']:.4f} ± {r['std']:.4f}  (Δ = {delta:+.4f} vs default)")
 
     print(f"\nTotal time: {elapsed:.1f}s")
-    print(f"Results saved to: {RESULTS_DIR}/")
+    print(f"Results saved to: {OPTUNA_DIR}/")
 
 
 if __name__ == "__main__":

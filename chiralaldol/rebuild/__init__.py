@@ -1,1 +1,1 @@
-"""V3 data rebuild pipeline — SOTA quality cleaning from raw alldata.csv."""
+"""V4 data rebuild pipeline: raw Reaxys (134K) → substrate-controlled aldol."""

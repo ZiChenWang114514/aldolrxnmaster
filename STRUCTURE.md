@@ -3,65 +3,56 @@
 ```
 aldolrxnmaster/
 ├── CLAUDE.md                  项目规范 (当前状态, 命名约定)
-├── RESULTS.md                 V4 基准结果
-├── MODEL_REGISTRY.md          模型注册表
-├── LESSONS.md                 开发教训
+├── RESULTS.md                 V4d 基准结果 (153d, Optuna, Chemprop)
 ├── TODO.md                    路线图
 │
-├── data/
-│   ├── data.csv               原始 Reaxys 导出 (134,027 行, 41 列)
-│   ├── clean_v4/              V4 清洗数据 (当前)
-│   │   ├── substrate_aldol_clean.csv  2179 行, 5 种辅基, 38 列
-│   │   ├── evans_clean.csv            1636 Evans 子集
-│   │   ├── labels.csv                 4-class 标签
-│   │   ├── condition_features.csv     44d 条件特征
-│   │   └── audit/                     行级审计 + 步骤摘要
-│   ├── features_v4/           V4 特征 (当前)
-│   │   ├── v4_features.csv    2179 × 84d 完整特征矩阵
-│   │   ├── steric_features.csv  34d steric
-│   │   ├── labels.csv
-│   │   ├── feature_manifest.json
-│   │   └── conformers/        构象 pickle 缓存
-│   ├── splits_v4/             V4 划分 (当前)
-│   │   ├── tscv_fold{1-4}.json
-│   │   ├── scaffold.json
-│   │   └── grouped_seed{42,123,456,789,1024}.json
-│   ├── raw/                   (已归档)
-│   ├── clean/                 V3 清洗数据 (已被 V4 取代)
-│   ├── features/              V3 特征 (已被 V4 取代)
-│   └── splits/                V3 划分 (已被 V4 取代)
-│
-├── scripts/
-│   ├── run_rebuild_v4.py      V4 12 步数据清洗 (134K → 2179)
-│   ├── run_features_v4.py     V4 特征工程 (构象+steric+整合)
-│   ├── run_splits_v4.py       V4 数据划分 (TSCV+scaffold+grouped)
-│   ├── run_all_models_v4.py   V4 基准 (11 models × 10 splits)
-│   ├── run_rebuild.py         V3 管线 (已取代)
-│   ├── run_all_models_v3.py   V3 基准 (已取代)
-│   └── ...                    其他旧脚本
-│
-├── chiralaldol/
-│   ├── rebuild_v4/            V4 数据清洗管线 (12 步)
+├── chiralaldol/               核心包
+│   ├── config.py              路径常量 + ML 常量
+│   ├── data_io.py             数据加载 (prepare_Xy, load_splits, load_mechaware_bw)
+│   ├── model_trainers.py      模型训练 (train_xgb, train_et, MajorityClassifier, ...)
+│   ├── feature_registry.py    特征子集选择 (select_features, FEATURE_SUBSETS)
+│   ├── rebuild/               V4 数据清洗管线 (13 步)
 │   │   ├── constants.py       SMARTS, 溶剂 DB, 金属, 辅基催化排除
 │   │   ├── audit.py           AuditTracker 类
-│   │   ├── utils.py           SMILES 解析, 数值字段处理
-│   │   └── step{01-12}_*.py   12 步管线模块
-│   ├── rebuild/               V3 管线 (已取代)
+│   │   └── step{01-12}_*.py   13 步管线模块 (含 step08b)
+│   ├── rebuild_legacy/        V3 计算工具 (conformers, steric — 被 run_features.py 引用)
 │   ├── steric_descriptors.py  %Vbur + Sterimol + 二面角 (24d)
 │   ├── aldehyde_steric.py     醛 steric (10d)
-│   └── ...
+│   ├── conformer_sampler.py   3D 构象采样
+│   └── gnn/                   GNN 模块 (equiformer, schnet_3d, etc.)
+│
+├── scripts/                   可执行脚本 (15 个)
+│   ├── run_rebuild.py         数据清洗 (134K Reaxys → 2334)
+│   ├── run_features.py        特征工程 (→ 153d)
+│   ├── run_splits.py          数据划分 (TSCV + scaffold + grouped)
+│   ├── run_mechaware.py       MechAware 特征 (Z/E 分离 + BW 加权)
+│   ├── run_benchmark.py       模型基准 (11 models × 10 splits)
+│   ├── run_benchmark_full.py  完整基准 (含 MechAware)
+│   ├── run_benchmark_evans.py Evans-only 基准
+│   ├── run_optuna.py          Optuna 超参搜索
+│   ├── run_optuna_benchmark.py Optuna 参数全 split 评估
+│   ├── run_stacking.py        Stacking 集成
+│   ├── run_chemprop.py        Chemprop MPNN baseline
+│   ├── run_aux_models.py      Per-auxiliary 独立模型
+│   ├── run_shap_analysis.py   SHAP 特征重要性
+│   ├── run_error_analysis.py  错误分析
+│   └── run_chem_space_audit.py 化学空间审计
+│
+├── data/
+│   ├── clean_v4/              清洗数据 (2334 行, 42 列)
+│   ├── features_v4/           153d 特征 + MechAware BW/Full
+│   └── splits_v4/             TSCV + scaffold + grouped 划分
 │
 ├── results/
-│   ├── predictions_v4/        V4 预测结果
-│   │   ├── steric/            full_xgb, full_lgbm, full_et, full_rf, steronly_xgb
-│   │   └── baseline/          cond_xgb, condaux_xgb, condaux_lgbm, knn_1, knn_5, majority
-│   ├── tables/
-│   │   └── benchmark_v4.csv   V4 基准汇总
-│   └── predictions/           V3 预测结果 (已取代)
+│   ├── predictions_v4/        预测 CSV (v4b, mechaware, optuna, stacking, chemprop, ...)
+│   ├── optuna/                Optuna 最优参数 + trials
+│   ├── tables/                汇总表 (benchmark_v4.csv, ...)
+│   ├── shap/                  SHAP 分析
+│   └── chem_space_audit/      化学空间诊断
 │
-├── archive/                   归档
-│   ├── data_raw_v3/           V3 原始 alldata.csv 备份
-│   └── ...
+├── archive/                   归档 (V3 数据/脚本/notebooks, 废弃脚本)
+│
+├── literature/                文献资料
 │
 └── tests/                     单元测试
 ```

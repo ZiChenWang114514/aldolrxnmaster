@@ -1,6 +1,9 @@
 # External SOTA repos (13GB)
 external/
 
+# Archive (legacy V3, deprecated scripts, etc.)
+archive/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -18,19 +18,20 @@ from rdkit.Chem import Descriptors
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-CLEAN_CSV = PROJECT_DIR / "data" / "clean_v4" / "substrate_aldol_clean.csv"
-FEAT_DIR = PROJECT_DIR / "data" / "features_v4"
+from chiralaldol.config import CLEAN_DIR, FEAT_DIR
+
+CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
 CONF_DIR = FEAT_DIR / "conformers"
 
-from chiralaldol.rebuild.step10_conformers import _generate_one, _worker_fn, TIMEOUT_SEC
-from chiralaldol.rebuild.step11_steric import (
-    _compute_enolate_steric, _compute_aldehyde_steric,
-    ENOLATE_STERIC_NAMES, ALDEHYDE_STERIC_NAMES,
+from chiralaldol.rebuild_legacy.step10_conformers import TIMEOUT_SEC, _worker_fn
+from chiralaldol.rebuild_legacy.step11_steric import (
+    ALDEHYDE_STERIC_NAMES,
+    ENOLATE_STERIC_NAMES,
+    _compute_aldehyde_steric,
+    _compute_enolate_steric,
 )
-from chiralaldol.rebuild_v4.constants import AUXILIARY_SMARTS
 
 # ═══════════════════════════ Auxiliary C4 SMARTS ═══════════════════════════
 # Patterns that match the CHIRAL center (C4) as the first atom (:1).
@@ -608,9 +609,10 @@ def compute_delta_chirality_features(df: pd.DataFrame) -> pd.DataFrame:
     Computes FP(ketone) - FP(enantiomer) to isolate chirality-sensitive bits,
     then PCA to 16d. Uses ketone SMILES only (no product leakage).
     """
+    import re
+
     from rdkit.Chem import AllChem
     from sklearn.decomposition import PCA
-    import re
 
     print("Computing delta chirality features...")
 
@@ -671,7 +673,7 @@ def compute_chiral_determinant(df: pd.DataFrame) -> pd.DataFrame:
     Computes signed tetrahedral volume for each stereocenter from 3D conformer.
     Continuous measure replaces discrete R/S encoding.
     """
-    from rdkit.Chem import AllChem, rdMolDescriptors
+    from rdkit.Chem import AllChem
 
     print("Computing chiral determinant features...")
 
@@ -766,7 +768,7 @@ def integrate_features(
     New blocks appended: chirality(7) + rgroup(8) + chiralenv(21) + aldpri(8) + delta(16) + det(3).
     """
     # Load condition features from V4 pipeline output
-    cond_path = PROJECT_DIR / "data" / "clean_v4" / "condition_features.csv"
+    cond_path = CLEAN_DIR / "condition_features.csv"
     cond_df = pd.read_csv(cond_path)
     print(f"  Conditions: {cond_df.shape[1]}d")
 
@@ -907,7 +909,7 @@ def main():
     labels.to_csv(FEAT_DIR / "labels.csv", index=False)
 
     # Feature manifest
-    cond_dims = pd.read_csv(PROJECT_DIR / "data" / "clean_v4" / "condition_features.csv").shape[1]
+    cond_dims = pd.read_csv(CLEAN_DIR / "condition_features.csv").shape[1]
     manifest = {
         "n_features": feat_df.shape[1],
         "n_samples": feat_df.shape[0],

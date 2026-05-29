@@ -22,13 +22,13 @@ from sklearn.metrics import balanced_accuracy_score, confusion_matrix
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.utils.class_weight import compute_sample_weight
 
-PROJECT = Path(__file__).resolve().parent.parent
-FEAT_DIR = PROJECT / "data" / "features_v4"
-CLEAN_CSV = PROJECT / "data" / "clean_v4" / "substrate_aldol_clean.csv"
-OPTUNA_DIR = PROJECT / "results" / "optuna"
-OUT_DIR = PROJECT / "results" / "tables"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-TARGET_LABEL = "label_joint"
+from chiralaldol.config import CLEAN_DIR, OPTUNA_DIR, RESULTS_DIR
+from chiralaldol.data_io import prepare_Xy
+
+CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
+OUT_DIR = RESULTS_DIR / "tables"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("aux_models")
@@ -98,14 +98,8 @@ def main():
     logger.info("Auxiliary-Aware Independent Modeling")
     logger.info("=" * 60)
 
-    X_df = pd.read_csv(FEAT_DIR / "v4_features.csv")
-    labels = pd.read_csv(FEAT_DIR / "labels.csv")
+    X, y, valid_mask, _ = prepare_Xy()
     meta = pd.read_csv(CLEAN_CSV)
-
-    valid_mask = labels[TARGET_LABEL].notna().values
-    X = X_df.values.astype(np.float32)
-    np.nan_to_num(X, copy=False)
-    y = np.where(valid_mask, labels[TARGET_LABEL].values, -1).astype(int)
 
     xgb_params, et_params = load_optuna_params()
 

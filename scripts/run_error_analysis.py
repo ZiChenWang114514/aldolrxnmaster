@@ -5,20 +5,21 @@ Usage:
     conda run -n aldol-rxn python scripts/run_error_analysis.py
 """
 
-import json
 import logging
 import sys
 from collections import Counter
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.metrics import balanced_accuracy_score, confusion_matrix
 
-PROJECT = Path(__file__).resolve().parent.parent
-PRED_DIR = PROJECT / "results" / "predictions_v4" / "optuna"
-CLEAN_CSV = PROJECT / "data" / "clean_v4" / "substrate_aldol_clean.csv"
-OUT_DIR = PROJECT / "results" / "analysis"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from chiralaldol.config import CLEAN_DIR, PRED_DIR, RESULTS_DIR
+
+OPTUNA_PRED_DIR = PRED_DIR / "optuna"
+CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
+OUT_DIR = RESULTS_DIR / "analysis"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("error_analysis")
@@ -35,10 +36,10 @@ def main():
     # Load all TSCV predictions for champion model
     preds = []
     for i in range(1, 5):
-        path = PRED_DIR / f"ma_bw_xgb_optuna_tscv_fold{i}.csv"
+        path = OPTUNA_PRED_DIR / f"ma_bw_xgb_optuna_tscv_fold{i}.csv"
         if not path.exists():
             # Fallback to xgb_optuna if ma_bw not available
-            path = PRED_DIR / f"xgb_optuna_tscv_fold{i}.csv"
+            path = OPTUNA_PRED_DIR / f"xgb_optuna_tscv_fold{i}.csv"
         if path.exists():
             df = pd.read_csv(path)
             df["fold"] = i
@@ -75,7 +76,7 @@ def main():
     # Most common error pairs
     errors = [(y_true[i], y_pred[i]) for i in range(len(y_true)) if y_true[i] != y_pred[i]]
     error_counts = Counter(errors)
-    logger.info(f"\nMost common errors (true→pred):")
+    logger.info("\nMost common errors (true→pred):")
     for (t, p), cnt in error_counts.most_common(6):
         class_names = ["RR", "RS", "SR", "SS"]
         logger.info(f"  {class_names[t]}→{class_names[p]}: {cnt}")

@@ -1,161 +1,89 @@
 #!/usr/bin/env python3
-"""V3 Data Rebuild Pipeline — SOTA quality cleaning from raw alldata.csv.
+"""V4 Rebuild Pipeline: Raw Reaxys (134K) -> substrate-controlled aldol clean dataset.
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_rebuild_v3.py [--skip-conformers] [--skip-rxnmapper]
-
-This script orchestrates 17 sequential steps to rebuild the dataset:
-  Step 0:  SA convention literature confirmation
-  Step 1:  Raw data loading + initial audit
-  Step 2:  SMILES strict isomeric canonicalization
-  Step 3:  Stereocenter validation (delete <2)
-  Step 4:  CIP label cross-validation (delete mismatches)
-  Step 5:  Atom mapping dual verification (template + RXNMapper)
-  Step 6:  Auxiliary chirality SMARTS extraction
-  Step 7:  Template-based deduplication (role-aware)
-  Step 8:  Solvent semantic parsing
-  Step 9:  Condition feature engineering (44d)
-  Step 10: Conformer generation with fallback chain
-  Step 11: 3D steric features (34d)
-  Step 12: Feature integration (~85d) + split-aware normalization
-  Step 13: Data splitting (TSCV + scaffold + grouped)
-  Step 14: Row-level audit report
-  Step 15: Non-Evans processing
-  Step 16: Verification suite
-
-Output: data/v3/ directory with all results.
+    conda run -n aldol-rxn python scripts/run_rebuild_v4.py
 """
 
-import argparse
-import logging
 import sys
 import time
 from pathlib import Path
 
-# Add project root to path
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from chiralaldol.rebuild.logger import setup_logging
-from chiralaldol.rebuild.constants import RAW_DIR, V3_DIR
+from chiralaldol.config import PROJECT_DIR
 from chiralaldol.rebuild import (
-    step00_literature,
-    step01_load,
-    step02_canonicalize,
-    step03_stereocenters,
-    step04_cip_validation,
-    step05_atom_mapping,
-    step06_auxiliary,
-    step07_dedup,
-    step08_solvent,
-    step09_conditions,
-    step10_conformers,
-    step11_steric,
-    step12_features,
-    step13_splits,
-    step14_audit,
-    step15_non_evans,
-    step16_verify,
+    step01_load_filter,
+    step02_parse_products,
+    step03_auxiliary_detect,
+    step04_canonicalize,
+    step05_stereocenters,
+    step06_atom_mapping,
+    step07_label_extract,
+    step08_label_validate,
+    step08b_3d_synanti,
+    step09_dedup,
+    step10_conditions_extract,
+    step11_conditions_engineer,
+    step12_audit_output,
 )
-
-logger = logging.getLogger("rebuild_v3")
+from chiralaldol.rebuild.audit import AuditTracker
+from chiralaldol.rebuild.utils import setup_logging
 
 
 def main():
-    parser = argparse.ArgumentParser(description="V3 Data Rebuild Pipeline")
-    parser.add_argument("--skip-conformers", action="store_true",
-                        help="Skip Steps 10-11 (conformer generation + steric features)")
-    parser.add_argument("--skip-rxnmapper", action="store_true",
-                        help="Skip RXNMapper in Step 5 (use template-only verification)")
-    parser.add_argument("--date-suffix", default="20260515",
-                        help="Date suffix for output files (default: 20260515)")
-    args = parser.parse_args()
-
-    # Setup
-    V3_DIR.mkdir(parents=True, exist_ok=True)
-    for subdir in ["interim", "features", "splits", "splits/normalized",
-                    "audit", "verification", "literature"]:
-        (V3_DIR / subdir).mkdir(parents=True, exist_ok=True)
-
-    log_path = V3_DIR / "rebuild_v3.log"
-    setup_logging(log_path)
-
-    logger.info("=" * 60)
-    logger.info("V3 Data Rebuild Pipeline — Starting")
-    logger.info("=" * 60)
+    setup_logging()
     t0 = time.time()
+    print("=" * 60)
+    print("V4 REBUILD: Raw Reaxys -> Substrate-Controlled Aldol")
+    print("=" * 60)
 
-    # Initialize context
-    context = {
-        "project_dir": PROJECT_DIR,
-        "raw_dir": RAW_DIR,
-        "output_dir": V3_DIR,
-        "date_suffix": args.date_suffix,
-        "skip_rxnmapper": args.skip_rxnmapper,
-    }
+    # Initial row count for audit
+    n_total = sum(1 for _ in open(PROJECT_DIR / "data" / "data.csv")) - 1
+    audit = AuditTracker(n_total)
 
-    # ── Execute pipeline ──
-    steps = [
-        ("Step 0: Literature", step00_literature.run),
-        ("Step 1: Load", step01_load.run),
-        ("Step 2: Canonicalize", step02_canonicalize.run),
-        ("Step 3: Stereocenters", step03_stereocenters.run),
-        ("Step 4: CIP Validation", step04_cip_validation.run),
-        ("Step 5: Atom Mapping", step05_atom_mapping.run),
-        ("Step 6: Auxiliary", step06_auxiliary.run),
-        ("Step 7: Dedup", step07_dedup.run),
-        ("Step 8: Solvent", step08_solvent.run),
-        ("Step 9: Conditions", step09_conditions.run),
-    ]
+    # Step 01: Load + filter aldol reactions
+    df = step01_load_filter.run(audit)
 
-    if not args.skip_conformers:
-        steps += [
-            ("Step 10: Conformers", step10_conformers.run),
-            ("Step 11: Steric", step11_steric.run),
-        ]
-    else:
-        logger.info("Skipping Steps 10-11 (conformer generation + steric features)")
+    # Step 02: Parse reaction SMILES, identify main product
+    df = step02_parse_products.run(df, audit)
 
-    steps += [
-        ("Step 12: Features", step12_features.run),
-        ("Step 13: Splits", step13_splits.run),
-        ("Step 14: Audit", step14_audit.run),
-        ("Step 15: Non-Evans", step15_non_evans.run),
-        ("Step 16: Verify", step16_verify.run),
-    ]
+    # Step 03: Detect auxiliaries, exclude chiral catalysis
+    df = step03_auxiliary_detect.run(df, audit)
 
-    for step_name, step_fn in steps:
-        t_step = time.time()
-        logger.info(f"\n{'─' * 40}")
-        logger.info(f"Running {step_name}...")
-        logger.info(f"{'─' * 40}")
-        try:
-            context = step_fn(context)
-        except Exception as e:
-            logger.error(f"FAILED at {step_name}: {e}", exc_info=True)
-            raise
-        elapsed = time.time() - t_step
-        n_rows = len(context.get("df", []))
-        logger.info(f"  [{step_name}] done in {elapsed:.1f}s, {n_rows} rows remaining")
+    # Step 04: Canonicalize SMILES with stereo preservation
+    df = step04_canonicalize.run(df, audit)
 
-    # ── Save final Evans dataset ──
-    df = context["df"]
-    evans_mask = df["Reaction_Class"] == "EvansAux"
-    evans_df = df[evans_mask].reset_index(drop=True)
-    date_suffix = args.date_suffix
+    # Step 05: Filter by stereocenter count
+    df = step05_stereocenters.run(df, audit)
 
-    evans_path = V3_DIR / f"evans_clean_{date_suffix}.csv"
-    evans_df.to_csv(evans_path, index=False)
-    logger.info(f"\nFinal Evans dataset: {len(evans_df)} rows → {evans_path}")
+    # Step 06: Atom mapping (RXNMapper + template)
+    df = step06_atom_mapping.run(df, audit)
 
-    # ── Summary ──
-    total_time = time.time() - t0
-    logger.info(f"\n{'=' * 60}")
-    logger.info(f"V3 Pipeline Complete in {total_time:.1f}s")
-    logger.info(f"  Evans V3: {len(evans_df)} rows")
-    logger.info(f"  Non-Evans V3: {len(df[~evans_mask])} rows")
-    logger.info(f"  Output: {V3_DIR}")
-    logger.info(f"{'=' * 60}")
+    # Step 07: Extract stereochemistry labels
+    df = step07_label_extract.run(df, audit)
+
+    # Step 08: Cross-validate labels
+    df = step08_label_validate.run(df, audit)
+
+    # Step 08b: 3D dihedral-based syn/anti
+    df = step08b_3d_synanti.run(df, audit)
+
+    # Step 09: Deduplication + group_id
+    df = step09_dedup.run(df, audit)
+
+    # Step 10: Extract conditions
+    df = step10_conditions_extract.run(df, audit)
+
+    # Step 11: Condition feature engineering
+    df, feat_df = step11_conditions_engineer.run(df, audit)
+
+    # Step 12: Output + audit
+    step12_audit_output.run(df, feat_df, audit)
+
+    elapsed = time.time() - t0
+    print(f"\nTotal time: {elapsed:.1f}s")
+    print("Done.")
 
 
 if __name__ == "__main__":

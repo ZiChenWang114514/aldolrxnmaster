@@ -1,139 +1,133 @@
-#!/usr/bin/env python
-"""Train Chemprop v2 MPNN on Evans aldol reactions — reaction SMILES classification.
+#!/usr/bin/env python3
+"""Chemprop v2 MPNN baseline on V4d data — fair comparison with tree models.
 
-Models:
-  - Chemprop: reaction SMILES → MPNN → 4-class
-  - Chemprop+Cond: reaction SMILES + 14-dim conditions → MPNN → 4-class
+Uses ketone+aldehyde SMILES as multi-component input (no product leakage).
+Runs on all V4d splits (TSCV + scaffold + grouped) for direct comparison.
 
-Uses Chemprop v2 Python API with ReactionDatapoint + CondensedGraphOfReactionFeaturizer.
+Usage:
+    CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop_v4.py
+    CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop_v4.py --epochs 80
+    CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop_v4.py --mode features_only
 """
 
-import json
+import argparse
 import logging
 import os
 import sys
+import time
 import warnings
 from pathlib import Path
 
+import lightning as L
 import numpy as np
 import pandas as pd
 import torch
-import lightning as L
-from rdkit import Chem
+from rdkit import Chem, RDLogger
 from sklearn.metrics import balanced_accuracy_score
-from sklearn.utils.class_weight import compute_class_weight
 
+RDLogger.logger().setLevel(RDLogger.ERROR)
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from aldolrxnmaster.evaluation.metrics import compute_all_metrics, compute_metrics_with_ci
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s", datefmt="%H:%M:%S")
-logger = logging.getLogger(__name__)
+from chiralaldol.config import CLEAN_DIR, PRED_DIR, RESULTS_DIR
 
-PROJECT = Path("/data2/zcwang/aldolrxnmaster")
-FEAT_DIR = PROJECT / "data" / "processed" / "features"
-SPLIT_DIR = PROJECT / "data" / "processed" / "splits"
-RESULTS_DIR = PROJECT / "results"
-for d in [RESULTS_DIR / "predictions", RESULTS_DIR / "tables"]:
-    d.mkdir(parents=True, exist_ok=True)
+CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
+CHEMPROP_PRED_DIR = PRED_DIR / "chemprop"
+TABLE_DIR = RESULTS_DIR / "tables"
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger("chemprop_v4")
 
 
-def parse_rxn_smiles(rxn_smi: str):
-    """Parse 'reactants>>product' into (reactant_mol, product_mol)."""
-    parts = rxn_smi.split(">>")
-    if len(parts) != 2:
-        return None, None
-    rct_mol = Chem.MolFromSmiles(parts[0])
-    pdt_mol = Chem.MolFromSmiles(parts[1])
-    return rct_mol, pdt_mol
+def load_data():
+    """Load V4d clean data, features, labels, and splits."""
+    from chiralaldol.data_io import load_splits, prepare_Xy
+
+    meta = pd.read_csv(CLEAN_CSV)
+    X_features, y, valid_mask, _ = prepare_Xy()
+    splits = load_splits()
+    return meta, X_features, y, valid_mask, splits
 
 
-def load_data(split_name, with_conditions=False):
-    """Load reaction data for a split."""
-    rxn_df = pd.read_csv(FEAT_DIR / "reaction_smiles.csv")
-    rxn_smiles = rxn_df["rxn_smiles_clean"].values
-
-    labels_df = pd.read_csv(FEAT_DIR / "labels.csv")
-    y = labels_df["label_joint"].values.astype(int)
-
-    with open(SPLIT_DIR / f"{split_name}.json") as f:
-        split = json.load(f)
-    tr, va, te = np.array(split["train"]), np.array(split["val"]), np.array(split["test"])
-
-    # Load conditions if needed
-    conditions = None
-    if with_conditions:
-        cond_df = pd.read_csv(FEAT_DIR / "reaction_conditions.csv")
-        conditions = cond_df.values.astype(np.float32)
-
-    return rxn_smiles, y, tr, va, te, conditions, labels_df
-
-
-def build_datapoints(rxn_smiles, y, indices, conditions=None):
-    """Build Chemprop ReactionDatapoints."""
-    from chemprop.data import ReactionDatapoint
+def build_datapoints(meta, y, indices, X_features=None):
+    """Build Chemprop MoleculeDatapoints from ketone+aldehyde SMILES."""
+    from chemprop.data import MoleculeDatapoint
 
     datapoints = []
+    valid_indices = []
+
     for i in indices:
-        rct, pdt = parse_rxn_smiles(str(rxn_smiles[i]))
-        if rct is None or pdt is None:
+        ket_smi = str(meta.iloc[i].get("canonical_ketone_smiles", ""))
+        ald_smi = str(meta.iloc[i].get("canonical_aldehyde_smiles", ""))
+
+        if not ket_smi or ket_smi == "nan" or not ald_smi or ald_smi == "nan":
             continue
-        x_d = conditions[i] if conditions is not None else None
-        dp = ReactionDatapoint(
-            rct=rct, pdt=pdt,
-            y=np.array([y[i]]),
-            x_d=x_d,
-        )
+
+        # Multi-component SMILES: ketone.aldehyde
+        combined_smi = f"{ket_smi}.{ald_smi}"
+        mol = Chem.MolFromSmiles(combined_smi)
+        if mol is None:
+            # Fallback: try ketone only
+            mol = Chem.MolFromSmiles(ket_smi)
+            if mol is None:
+                continue
+
+        x_d = X_features[i] if X_features is not None else None
+        dp = MoleculeDatapoint(mol=mol, y=np.array([y[i]]), x_d=x_d)
         datapoints.append(dp)
-    return datapoints
+        valid_indices.append(i)
+
+    return datapoints, np.array(valid_indices)
 
 
-def train_chemprop(split_name, with_conditions=False, epochs=30):
-    """Train and evaluate Chemprop on one split."""
-    from chemprop.data import ReactionDataset, build_dataloader
-    from chemprop.featurizers import CondensedGraphOfReactionFeaturizer, RxnMode
-    from chemprop.nn import BondMessagePassing, MulticlassClassificationFFN, NormAggregation
-    from chemprop.nn.transforms import ScaleTransform
+def train_and_evaluate(meta, y, valid_mask, X_features, split_name, split_data,
+                       mode="smiles_only", epochs=50):
+    """Train Chemprop on one split, return metrics."""
+    from chemprop.data import MoleculeDataset, build_dataloader
     from chemprop.models import MPNN
+    from chemprop.nn import BondMessagePassing, MulticlassClassificationFFN, NormAggregation
 
-    model_name = "Chemprop+Cond" if with_conditions else "Chemprop"
-    logger.info(f"\n{'='*60}\n  {model_name}: {split_name}\n{'='*60}")
+    tr_raw = np.array(split_data["train"], dtype=int)
+    tr = tr_raw[valid_mask[tr_raw]]
+    te_raw = np.array(split_data["test"], dtype=int)
+    te = te_raw[valid_mask[te_raw]]
 
-    rxn_smiles, y, tr, va, te, conditions, labels_df = load_data(split_name, with_conditions)
+    # Use last 10% of train as val
+    va = tr[-max(1, len(tr) // 10):]
+    tr = tr[:-len(va)]
 
-    logger.info(f"Train={len(tr)}, Val={len(va)}, Test={len(te)}")
-    logger.info(f"Train classes: {np.bincount(y[tr], minlength=4)}")
+    if len(tr) < 10 or len(te) < 3:
+        return None
 
     # Build datapoints
-    tr_dps = build_datapoints(rxn_smiles, y, tr, conditions)
-    va_dps = build_datapoints(rxn_smiles, y, va, conditions)
-    te_dps = build_datapoints(rxn_smiles, y, te, conditions)
+    use_features = X_features if mode == "smiles_features" else None
 
-    logger.info(f"Valid datapoints: train={len(tr_dps)}, val={len(va_dps)}, test={len(te_dps)}")
+    tr_dps, tr_valid = build_datapoints(meta, y, tr, use_features)
+    va_dps, va_valid = build_datapoints(meta, y, va, use_features)
+    te_dps, te_valid = build_datapoints(meta, y, te, use_features)
 
-    # Featurizer
-    featurizer = CondensedGraphOfReactionFeaturizer(mode_=RxnMode.REAC_DIFF)
+    if len(tr_dps) < 10 or len(te_dps) < 3:
+        return None
 
-    # Datasets
-    tr_ds = ReactionDataset(tr_dps, featurizer=featurizer)
-    va_ds = ReactionDataset(va_dps, featurizer=featurizer)
-    te_ds = ReactionDataset(te_dps, featurizer=featurizer)
+    # Datasets and dataloaders
+    tr_ds = MoleculeDataset(tr_dps)
+    va_ds = MoleculeDataset(va_dps)
+    te_ds = MoleculeDataset(te_dps)
 
     tr_dl = build_dataloader(tr_ds, batch_size=32, shuffle=True, num_workers=0)
     va_dl = build_dataloader(va_ds, batch_size=64, shuffle=False, num_workers=0)
     te_dl = build_dataloader(te_ds, batch_size=64, shuffle=False, num_workers=0)
 
-    # Model components
-    # CGR featurizer for reactions produces d_v=106, d_e=28 (not default 72/14)
-    # x_d (molecule-level extra features) are concatenated after aggregation, before FFN
-    d_xd = conditions.shape[1] if conditions is not None else 0
-    mp = BondMessagePassing(d_v=106, d_e=28, depth=3, d_h=300, dropout=0.1)
+    # Model
+    d_xd = X_features.shape[1] if use_features is not None else 0
+    mp = BondMessagePassing(d_v=72, d_e=14, depth=3, d_h=300, dropout=0.1)
     agg = NormAggregation()
-    ffn = MulticlassClassificationFFN(n_classes=4, input_dim=300 + d_xd, hidden_dim=300, n_layers=2, dropout=0.1)
+    ffn = MulticlassClassificationFFN(
+        n_classes=4, input_dim=300 + d_xd, hidden_dim=300, n_layers=2, dropout=0.1
+    )
 
-    # Build MPNN
     model = MPNN(
         message_passing=mp,
         agg=agg,
@@ -160,41 +154,121 @@ def train_chemprop(split_name, with_conditions=False, epochs=30):
 
     # Predict
     preds = trainer.predict(model, te_dl)
-    # preds is a list of tensors, each (batch, n_tasks, n_classes)
-    all_probs = torch.cat(preds, dim=0).squeeze(1).numpy()  # (N, 4)
-    y_pred = all_probs.argmax(axis=1)
-    y_prob = torch.softmax(torch.tensor(all_probs), dim=1).numpy()
-    y_test = y[te[:len(y_pred)]]  # handle potential dropped datapoints
+    all_logits = torch.cat(preds, dim=0).squeeze(1)  # (N, 4)
+    y_prob = torch.softmax(all_logits, dim=1).numpy()
+    y_pred = y_prob.argmax(axis=1)
+    y_test = y[te_valid[:len(y_pred)]]
 
-    # Evaluate
-    metrics = compute_all_metrics(y_test, y_pred, y_prob)
-    ci = compute_metrics_with_ci(y_test, y_pred, n_boot=500)
+    bal_acc = balanced_accuracy_score(y_test, y_pred)
 
-    logger.info(f"  {model_name}: bal_acc={metrics['balanced_accuracy']:.4f}, "
-                f"MCC={metrics['mcc']:.4f}, joint_acc={metrics['joint_accuracy']:.4f}")
-
-    # Save predictions
-    fname = "chemprop_cond" if with_conditions else "chemprop"
-    out_df = pd.DataFrame({
-        "idx": te[:len(y_pred)],
-        "y_true": y_test,
+    return {
+        "split": split_name,
+        "mode": mode,
+        "bal_acc": round(bal_acc, 4),
+        "n_train": len(tr_dps),
+        "n_test": len(te_dps),
+        "y_test": y_test,
         "y_pred": y_pred,
-    })
-    for c in range(4):
-        out_df[f"prob_{c}"] = y_prob[:, c]
-    out_df.to_csv(RESULTS_DIR / "predictions" / f"{fname}_{split_name}.csv", index=False)
+        "y_prob": y_prob,
+        "test_idx": te_valid[:len(y_pred)],
+    }
 
-    return metrics, ci
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--mode", choices=["smiles_only", "smiles_features", "both"], default="both")
+    args = parser.parse_args()
+
+    t0 = time.time()
+    logger.info("=" * 60)
+    logger.info(f"Chemprop v2 MPNN Baseline (epochs={args.epochs})")
+    logger.info(f"GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}")
+    logger.info("=" * 60)
+
+    meta, X_features, y, valid_mask, splits = load_data()
+    logger.info(f"Data: {len(meta)} rows, {X_features.shape[1]}d features, {len(splits)} splits")
+
+    CHEMPROP_PRED_DIR.mkdir(parents=True, exist_ok=True)
+
+    modes = []
+    if args.mode in ("smiles_only", "both"):
+        modes.append("smiles_only")
+    if args.mode in ("smiles_features", "both"):
+        modes.append("smiles_features")
+
+    all_results = []
+
+    for mode in modes:
+        mode_label = "Chemprop" if mode == "smiles_only" else "Chemprop+Features"
+        logger.info(f"\n{'='*40}\n  Mode: {mode_label}\n{'='*40}")
+
+        for split_name, split_data in sorted(splits.items()):
+            logger.info(f"\n  --- {split_name} ---")
+
+            result = train_and_evaluate(
+                meta, y, valid_mask, X_features, split_name, split_data,
+                mode=mode, epochs=args.epochs,
+            )
+
+            if result is None:
+                logger.warning(f"  Skipped {split_name} (insufficient data)")
+                continue
+
+            logger.info(f"  {mode_label}: bal_acc={result['bal_acc']:.4f}")
+
+            # Save predictions
+            fname = f"chemprop_{mode}_{split_name}.csv"
+            out = pd.DataFrame({
+                "idx": result["test_idx"],
+                "y_true": result["y_test"],
+                "y_pred": result["y_pred"],
+            })
+            for c in range(4):
+                out[f"prob_{c}"] = result["y_prob"][:, c]
+            out.to_csv(CHEMPROP_PRED_DIR / fname, index=False)
+
+            all_results.append({
+                "model": mode_label,
+                "split": split_name,
+                "bal_acc": result["bal_acc"],
+                "n_train": result["n_train"],
+                "n_test": result["n_test"],
+            })
+
+    # Save summary
+    results_df = pd.DataFrame(all_results)
+    results_df.to_csv(TABLE_DIR / "benchmark_v4_chemprop.csv", index=False)
+
+    # Print summary
+    print("\n" + "=" * 70)
+    print("CHEMPROP V2 BENCHMARK SUMMARY")
+    print("=" * 70)
+
+    for mode_label in ["Chemprop", "Chemprop+Features"]:
+        mr = [r for r in all_results if r["model"] == mode_label]
+        if not mr:
+            continue
+        tscv = [r["bal_acc"] for r in mr if "tscv" in r["split"]]
+        grouped = [r["bal_acc"] for r in mr if "grouped" in r["split"]]
+        scaffold = [r["bal_acc"] for r in mr if "scaffold" in r["split"]]
+
+        print(f"\n  {mode_label}:")
+        if tscv:
+            print(f"    TSCV:     {np.mean(tscv):.4f} ± {np.std(tscv):.4f}")
+        if scaffold:
+            print(f"    Scaffold: {scaffold[0]:.4f}")
+        if grouped:
+            print(f"    Grouped:  {np.mean(grouped):.4f} ± {np.std(grouped):.4f}")
+
+    print("\n  --- Tree Model Baselines (153d Optuna) ---")
+    print("  ma_bw_xgb_optuna: TSCV=0.669, Scaffold=0.597, Grouped=0.746")
+    print("  et_optuna:        TSCV=0.646, Scaffold=0.610, Grouped=0.758")
+
+    elapsed = time.time() - t0
+    print(f"\nTotal time: {elapsed:.1f}s")
+    print(f"Results: {TABLE_DIR / 'benchmark_v4_chemprop.csv'}")
 
 
 if __name__ == "__main__":
-    splits = ["evans_temporal", "evans_scaffold", "evans_grouped_random_seed42"]
-
-    for split in splits:
-        # M1: Chemprop (reaction SMILES only)
-        train_chemprop(split, with_conditions=False, epochs=30)
-
-        # M2: Chemprop + Conditions
-        train_chemprop(split, with_conditions=True, epochs=30)
-
-    logger.info("\nDone! Now run: python scripts/rebuild_comparison.py")
+    main()
