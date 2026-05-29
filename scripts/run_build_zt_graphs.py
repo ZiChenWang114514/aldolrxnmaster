@@ -16,6 +16,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR
+from chiralaldol.zt_3d_coords import add_3d_coords_batch
 from chiralaldol.zt_graph_builder import build_zt_graphs_batch
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -45,6 +46,10 @@ def main():
     logger.info(f"Status: {statuses}")
     logger.info(f"Success rate: {statuses['success']}/{len(evans_df)} "
                 f"({statuses['success']/len(evans_df)*100:.1f}%)")
+
+    # Add 3D coordinates
+    logger.info("Generating 3D chair coordinates...")
+    add_3d_coords_batch(graphs)
 
     # Save graphs
     out = {

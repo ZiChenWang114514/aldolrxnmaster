@@ -251,8 +251,13 @@ class ZTChiral(nn.Module):
 
 # ═══════════════════════════ Model Registry ═══════════════════════════
 
+from .chidek import ZTChiDeK
+from .gcpnet_zt import ZTGCPNet
+
 ZT_MODELS = {
     "ZT-GIN": ZTGIN,
     "ZT-GAT": ZTGAT,
     "ZT-Chiral": ZTChiral,
+    "ZT-ChiDeK": ZTChiDeK,
+    "ZT-GCPNet": ZTGCPNet,
 }

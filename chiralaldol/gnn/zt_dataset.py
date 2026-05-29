@@ -31,6 +31,10 @@ def zt_graph_to_pyg(zt_graph, label=None, extra_features=None):
     data.node_type = node_type
     data.n_ring = zt_graph.n_ring_atoms
 
+    # 3D coordinates (if available)
+    if hasattr(zt_graph, "pos") and zt_graph.pos is not None:
+        data.pos = torch.tensor(zt_graph.pos, dtype=torch.float)
+
     if label is not None:
         data.y = torch.tensor([label], dtype=torch.long)
 

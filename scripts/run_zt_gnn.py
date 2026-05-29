@@ -246,17 +246,29 @@ def main():
 
     for model_name in model_names:
         model_cls = ZT_MODELS[model_name]
-        model_kwargs = {
-            "node_dim": 20,
-            "edge_dim": 5,
-            "hidden_dim": args.hidden,
-            "n_layers": args.layers,
-            "n_classes": 4,
-            "dropout": 0.2,
-            "global_feat_dim": global_feat_dim,
-        }
-        if model_name == "ZT-GAT":
-            model_kwargs["n_heads"] = 4
+
+        # Model-specific kwargs
+        if model_name == "ZT-GCPNet":
+            model_kwargs = {
+                "node_dim": 20, "edge_dim": 5,
+                "hidden_scalar": 64, "hidden_vector": 16,
+                "n_layers": args.layers, "n_classes": 4,
+                "dropout": 0.2, "global_feat_dim": global_feat_dim,
+            }
+        elif model_name == "ZT-ChiDeK":
+            model_kwargs = {
+                "node_dim": 20, "edge_dim": 5, "hidden_dim": args.hidden,
+                "n_backbone_layers": 3, "n_chiral_layers": 2,
+                "n_classes": 4, "dropout": 0.2, "global_feat_dim": global_feat_dim,
+            }
+        else:
+            model_kwargs = {
+                "node_dim": 20, "edge_dim": 5, "hidden_dim": args.hidden,
+                "n_layers": args.layers, "n_classes": 4,
+                "dropout": 0.2, "global_feat_dim": global_feat_dim,
+            }
+            if model_name == "ZT-GAT":
+                model_kwargs["n_heads"] = 4
 
         logger.info(f"\n{'='*40}\n  Model: {model_name}\n{'='*40}")
 
