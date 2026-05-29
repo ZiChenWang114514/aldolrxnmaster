@@ -71,73 +71,45 @@ def prepare_Xy(target_label=None, feat_dir=None):
     return X, y, valid_mask, feat_names
 
 
-def load_mechaware_bw(feat_dir=None, feat_names=None):
-    """Load MechAware BW features + chirality columns from v4_features.
+def save_predictions(path, test_idx, y_true, y_pred, y_prob=None, n_classes=4):
+    """Save predictions to standard CSV format (idx, y_true, y_pred, prob_0..N)."""
+    out = pd.DataFrame({"idx": test_idx, "y_true": y_true, "y_pred": y_pred})
+    if y_prob is not None:
+        for c in range(min(n_classes, y_prob.shape[1])):
+            out[f"prob_{c}"] = y_prob[:, c]
+    out.to_csv(path, index=False)
 
-    Returns X_ma (float32 array) or None if file missing.
-    """
+
+def _load_mechaware(feat_dir, csv_name, feat_names):
+    """Load MechAware CSV + append chirality columns from v4_features."""
     feat_dir = Path(feat_dir) if feat_dir else FEAT_DIR
-
-    bw_path = feat_dir / "v4_mechaware_bw.csv"
-    if not bw_path.exists():
-        logger.warning("MechAware BW not found at %s", bw_path)
+    path = feat_dir / csv_name
+    if not path.exists():
+        logger.warning("Not found: %s", path)
         return None
 
-    X_bw = pd.read_csv(bw_path).values.astype(np.float32)
-    np.nan_to_num(X_bw, copy=False)
+    X_mech = pd.read_csv(path).values.astype(np.float32)
+    np.nan_to_num(X_mech, copy=False)
 
-    # Append chirality features from v4_features
-    if feat_names is None:
-        X_df, feat_names = load_features(feat_dir)
-        X_base = X_df.values.astype(np.float32)
-        np.nan_to_num(X_base, copy=False)
-    else:
-        X_df, _ = load_features(feat_dir)
-        X_base = X_df.values.astype(np.float32)
-        np.nan_to_num(X_base, copy=False)
+    X_df, feat_names = load_features(feat_dir)
+    X_base = X_df.values.astype(np.float32)
+    np.nan_to_num(X_base, copy=False)
 
-    # Check row count match (MechAware may be stale after data filtering)
-    if X_bw.shape[0] != X_base.shape[0]:
-        logger.warning("MechAware BW rows (%d) != features rows (%d), skipping",
-                        X_bw.shape[0], X_base.shape[0])
+    if X_mech.shape[0] != X_base.shape[0]:
+        logger.warning("Row mismatch: %s has %d rows vs features %d, skipping",
+                       csv_name, X_mech.shape[0], X_base.shape[0])
         return None
 
-    new_idx = [i for i, c in enumerate(feat_names)
-               if c.startswith(CHIRALITY_PREFIXES)]
-    X_new = X_base[:, new_idx]
-    return np.hstack([X_bw, X_new])
+    chir_idx = [i for i, c in enumerate(feat_names)
+                if c.startswith(CHIRALITY_PREFIXES)]
+    return np.hstack([X_mech, X_base[:, chir_idx]])
+
+
+def load_mechaware_bw(feat_dir=None, feat_names=None):
+    """Load MechAware BW features + chirality columns. Returns array or None."""
+    return _load_mechaware(feat_dir, "v4_mechaware_bw.csv", feat_names)
 
 
 def load_mechaware_full(feat_dir=None, feat_names=None):
-    """Load MechAware Full features + chirality columns from v4_features.
-
-    Returns X_ma (float32 array) or None if file missing.
-    """
-    feat_dir = Path(feat_dir) if feat_dir else FEAT_DIR
-
-    full_path = feat_dir / "v4_mechaware_full.csv"
-    if not full_path.exists():
-        logger.warning("MechAware Full not found at %s", full_path)
-        return None
-
-    X_full = pd.read_csv(full_path).values.astype(np.float32)
-    np.nan_to_num(X_full, copy=False)
-
-    if feat_names is None:
-        X_df, feat_names = load_features(feat_dir)
-        X_base = X_df.values.astype(np.float32)
-        np.nan_to_num(X_base, copy=False)
-    else:
-        X_df, _ = load_features(feat_dir)
-        X_base = X_df.values.astype(np.float32)
-        np.nan_to_num(X_base, copy=False)
-
-    if X_full.shape[0] != X_base.shape[0]:
-        logger.warning("MechAware Full rows (%d) != features rows (%d), skipping",
-                        X_full.shape[0], X_base.shape[0])
-        return None
-
-    new_idx = [i for i, c in enumerate(feat_names)
-               if c.startswith(CHIRALITY_PREFIXES)]
-    X_new = X_base[:, new_idx]
-    return np.hstack([X_full, X_new])
+    """Load MechAware Full features + chirality columns. Returns array or None."""
+    return _load_mechaware(feat_dir, "v4_mechaware_full.csv", feat_names)

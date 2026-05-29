@@ -28,7 +28,7 @@ from sklearn.utils.class_weight import compute_sample_weight
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import N_CLASSES, PRED_DIR, RESULTS_DIR
-from chiralaldol.data_io import load_mechaware_bw, load_splits, prepare_Xy
+from chiralaldol.data_io import load_mechaware_bw, load_splits, prepare_Xy, save_predictions
 from chiralaldol.model_trainers import train_et, train_xgb
 
 STACKING_RESULTS_DIR = RESULTS_DIR / "stacking"
@@ -241,15 +241,9 @@ def main():
         if result is None:
             continue
 
-        # Save prediction CSV
-        out = pd.DataFrame({
-            "idx": result["test_idx"],
-            "y_true": result["y_true"],
-            "y_pred": result["y_pred"],
-        })
-        for c in range(N_CLASSES):
-            out[f"prob_{c}"] = result["y_prob"][:, c] if c < result["y_prob"].shape[1] else 0.0
-        out.to_csv(STACKING_PRED_DIR / f"stacking_lr_{split_name}.csv", index=False)
+        save_predictions(STACKING_PRED_DIR / f"stacking_lr_{split_name}.csv",
+                        result["test_idx"], result["y_true"], result["y_pred"],
+                        result["y_prob"], N_CLASSES)
 
         all_results.append({
             "split": split_name,

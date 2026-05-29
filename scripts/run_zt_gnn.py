@@ -34,7 +34,7 @@ from torch_geometric.loader import DataLoader
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPLITS_DIR
-from chiralaldol.data_io import prepare_Xy, load_splits
+from chiralaldol.data_io import prepare_Xy, load_splits, save_predictions
 from chiralaldol.gnn.zt_dataset import build_pyg_dataset
 from chiralaldol.gnn.zt_models import ZT_MODELS
 
@@ -287,16 +287,10 @@ def main():
             logger.info(f"  {split_name}: bal_acc={result['bal_acc']:.4f} "
                         f"(va={result['best_va_acc']:.4f}, n_test={result['n_test']})")
 
-            # Save predictions
-            out = pd.DataFrame({
-                "idx": result["test_idx"],
-                "y_true": result["y_true"],
-                "y_pred": result["y_pred"],
-            })
-            for c in range(4):
-                out[f"prob_{c}"] = result["y_prob"][:, c]
             fname = f"{model_name}_{split_name}.csv".replace(" ", "_")
-            out.to_csv(OUT_PRED_DIR / fname, index=False)
+            save_predictions(OUT_PRED_DIR / fname,
+                            result["test_idx"], result["y_true"],
+                            result["y_pred"], result["y_prob"])
 
             all_results.append({
                 "model": model_name,

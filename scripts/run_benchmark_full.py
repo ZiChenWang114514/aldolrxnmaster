@@ -24,6 +24,7 @@ from chiralaldol.data_io import (
     load_mechaware_full,
     load_splits,
     prepare_Xy,
+    save_predictions,
 )
 from chiralaldol.model_trainers import (
     MajorityClassifier,
@@ -137,10 +138,8 @@ def main():
             bal_acc = balanced_accuracy_score(y[te], y_pred)
             mcc = matthews_corrcoef(y[te], y_pred)
 
-            out = pd.DataFrame({"idx": te, "y_true": y[te], "y_pred": y_pred})
-            for c in range(min(N_CLASSES, y_prob.shape[1])):
-                out[f"prob_{c}"] = y_prob[:, c]
-            out.to_csv(out_dir / f"{model_key}_{split_name}.csv", index=False)
+            save_predictions(out_dir / f"{model_key}_{split_name}.csv",
+                            te, y[te], y_pred, y_prob, N_CLASSES)
 
             all_results.append({
                 "model": model_key, "category": category, "feat_key": feat_key,

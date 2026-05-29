@@ -11,13 +11,6 @@ from rdkit.Chem import Descriptors
 logger = logging.getLogger("rebuild_v4")
 
 
-def setup_logging(level=logging.INFO):
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%H:%M:%S",
-    )
-
 
 def safe_mol(smiles: str) -> Optional[Chem.Mol]:
     """Parse SMILES, return None on failure (suppresses RDKit warnings)."""

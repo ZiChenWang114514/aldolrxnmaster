@@ -32,6 +32,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, PRED_DIR, RESULTS_DIR
+from chiralaldol.data_io import save_predictions
 
 CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
 CHEMPROP_PRED_DIR = PRED_DIR / "chemprop"
@@ -217,16 +218,10 @@ def main():
 
             logger.info(f"  {mode_label}: bal_acc={result['bal_acc']:.4f}")
 
-            # Save predictions
             fname = f"chemprop_{mode}_{split_name}.csv"
-            out = pd.DataFrame({
-                "idx": result["test_idx"],
-                "y_true": result["y_test"],
-                "y_pred": result["y_pred"],
-            })
-            for c in range(4):
-                out[f"prob_{c}"] = result["y_prob"][:, c]
-            out.to_csv(CHEMPROP_PRED_DIR / fname, index=False)
+            save_predictions(CHEMPROP_PRED_DIR / fname,
+                            result["test_idx"], result["y_test"],
+                            result["y_pred"], result["y_prob"])
 
             all_results.append({
                 "model": mode_label,

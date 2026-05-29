@@ -20,7 +20,7 @@ RDLogger.logger().setLevel(RDLogger.ERROR)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from chiralaldol.config import CLEAN_DIR, FEAT_DIR
+from chiralaldol.config import CLEAN_DIR, FEAT_DIR, VALID_AUXILIARIES
 
 CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
 CONF_DIR = FEAT_DIR / "conformers"
@@ -858,8 +858,7 @@ def main():
     # Load V4 clean data — filter to mechanistically coherent auxiliaries only
     df_full = pd.read_csv(CLEAN_CSV)
     # Exclude other_auxiliary (95% acyclic N-sulfonamide, non-ZT) and myers (n=14, 79% class 1)
-    VALID_AUX = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"]
-    df = df_full[df_full["auxiliary_type"].isin(VALID_AUX)].reset_index(drop=True)
+    df = df_full[df_full["auxiliary_type"].isin(VALID_AUXILIARIES)].reset_index(drop=True)
     print(f"Loaded {len(df_full)} rows, kept {len(df)} with valid auxiliaries "
           f"(excluded {len(df_full)-len(df)} other/myers)")
 

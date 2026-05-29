@@ -18,3 +18,6 @@ OPTUNA_DIR = PROJECT_DIR / "results" / "optuna"
 TARGET_LABEL = "label_joint"
 N_CLASSES = 4
 N_JOBS = 8
+
+# Valid auxiliary types (mechanistically well-defined for ZT aldol)
+VALID_AUXILIARIES = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"]

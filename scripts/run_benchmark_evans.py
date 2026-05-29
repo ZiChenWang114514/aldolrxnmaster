@@ -21,7 +21,7 @@ from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, PRED_DIR, RESULTS_DIR
-from chiralaldol.data_io import load_mechaware_bw, load_mechaware_full, load_splits, prepare_Xy
+from chiralaldol.data_io import load_mechaware_bw, load_mechaware_full, load_splits, prepare_Xy, save_predictions
 from chiralaldol.feature_registry import select_features
 from chiralaldol.model_trainers import (
     MajorityClassifier,
@@ -130,10 +130,8 @@ def main():
             bal_acc = balanced_accuracy_score(y[te], y_pred)
             mcc = matthews_corrcoef(y[te], y_pred)
 
-            out = pd.DataFrame({"idx": te, "y_true": y[te], "y_pred": y_pred})
-            for c in range(min(n_classes, y_prob.shape[1])):
-                out[f"prob_{c}"] = y_prob[:, c]
-            out.to_csv(out_dir / f"{model_key}_{split_name}.csv", index=False)
+            save_predictions(out_dir / f"{model_key}_{split_name}.csv",
+                            te, y[te], y_pred, y_prob, n_classes)
 
             all_results.append({
                 "model": model_key, "category": category, "split": split_name,

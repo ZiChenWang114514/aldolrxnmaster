@@ -36,7 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "external" / "ChiENN"))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPLITS_DIR
-from chiralaldol.data_io import prepare_Xy, load_splits
+from chiralaldol.data_io import prepare_Xy, load_splits, save_predictions
 
 # ChiENN imports
 from chienn.data.edge_graph.to_edge_graph import to_edge_graph
@@ -300,12 +300,9 @@ def main():
 
         logger.info(f"  bal_acc={result['bal_acc']:.4f} (va={result['best_va_acc']:.4f})")
 
-        out = pd.DataFrame({
-            "idx": result["test_idx"], "y_true": result["y_true"], "y_pred": result["y_pred"],
-        })
-        for c in range(4):
-            out[f"prob_{c}"] = result["y_prob"][:, c]
-        out.to_csv(OUT_PRED_DIR / f"chienn_{split_name}.csv", index=False)
+        save_predictions(OUT_PRED_DIR / f"chienn_{split_name}.csv",
+                        result["test_idx"], result["y_true"],
+                        result["y_pred"], result["y_prob"])
 
         all_results.append({
             "model": "ChiENN", "split": split_name,

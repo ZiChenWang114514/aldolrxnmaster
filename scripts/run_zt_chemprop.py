@@ -38,7 +38,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPLITS_DIR
-from chiralaldol.data_io import prepare_Xy, load_splits
+from chiralaldol.data_io import prepare_Xy, load_splits, save_predictions
 from chiralaldol.zt_features import extract_zt_features_batch, ZT_FEATURE_DIM
 
 CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
@@ -237,16 +237,10 @@ def main():
 
             logger.info(f"  {split_name}: {result['bal_acc']:.4f}")
 
-            # Save prediction
-            out = pd.DataFrame({
-                "idx": result["test_idx"],
-                "y_true": result["y_test"],
-                "y_pred": result["y_pred"],
-            })
-            for c in range(4):
-                out[f"prob_{c}"] = result["y_prob"][:, c]
             fname = f"zt_chemprop_{mode_label.replace('+', '_')}_{split_name}.csv"
-            out.to_csv(OUT_PRED_DIR / fname, index=False)
+            save_predictions(OUT_PRED_DIR / fname,
+                            result["test_idx"], result["y_test"],
+                            result["y_pred"], result["y_prob"])
 
             all_results.append({
                 "model": mode_label,

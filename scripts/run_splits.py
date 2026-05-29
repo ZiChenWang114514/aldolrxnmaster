@@ -18,7 +18,7 @@ from sklearn.model_selection import GroupShuffleSplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from chiralaldol.config import CLEAN_DIR, SPLITS_DIR
+from chiralaldol.config import CLEAN_DIR, SPLITS_DIR, VALID_AUXILIARIES
 
 CLEAN_CSV = CLEAN_DIR / "substrate_aldol_clean.csv"
 
@@ -192,8 +192,7 @@ def main():
 
     df_full = pd.read_csv(CLEAN_CSV)
     # Filter to mechanistically coherent auxiliaries (matching run_features.py)
-    VALID_AUX = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"]
-    df = df_full[df_full["auxiliary_type"].isin(VALID_AUX)].reset_index(drop=True)
+    df = df_full[df_full["auxiliary_type"].isin(VALID_AUXILIARIES)].reset_index(drop=True)
     print(f"Loaded {len(df_full)} rows, kept {len(df)} with valid auxiliaries")
 
     # Extract year
