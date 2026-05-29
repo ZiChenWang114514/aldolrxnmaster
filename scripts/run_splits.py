@@ -190,8 +190,11 @@ def main():
 
     SPLITS_DIR.mkdir(parents=True, exist_ok=True)
 
-    df = pd.read_csv(CLEAN_CSV)
-    print(f"Loaded {len(df)} rows")
+    df_full = pd.read_csv(CLEAN_CSV)
+    # Filter to mechanistically coherent auxiliaries (matching run_features.py)
+    VALID_AUX = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"]
+    df = df_full[df_full["auxiliary_type"].isin(VALID_AUX)].reset_index(drop=True)
+    print(f"Loaded {len(df_full)} rows, kept {len(df)} with valid auxiliaries")
 
     # Extract year
     df["year"] = df["References"].apply(extract_year)

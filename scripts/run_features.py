@@ -222,9 +222,9 @@ def _extract_chirality_one(ketone_smi, aux_type: str) -> dict:
         elif cip == "S":
             feat["chiral_aux_c4_R"] = 0.0
     elif defined:
-        # Fallback: mark as unknown (-1) rather than using an arbitrary stereocenter.
-        # Using the first-found stereocenter injects noise (wrong center picked).
-        feat["chiral_aux_c4_R"] = -1.0
+        # No C4 SMARTS match (e.g. Oppolzer bicyclic) — return 0, not random noise.
+        # Model learns to ignore C4 features via aux_is_bicyclic + c4_match=0.
+        feat["chiral_aux_c4_R"] = 0.0
         feat["chiral_aux_c4_match"] = 0.0
 
     return feat
@@ -741,14 +741,31 @@ def compute_chiral_determinant(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_auxiliary_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute auxiliary one-hot features (6d, unchanged for backward compat)."""
-    aux_types = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer", "other_auxiliary", "myers"]
+    """Compute auxiliary type encoding (4d one-hot) + mechanistic indicators (3d + 1d).
+
+    Architecture:
+      Layer 3a: aux_type one-hot (4d) — categorical identity
+      Layer 3b: aux_has_thio (1d) — C=S in auxiliary ring → Crimmins chelation mode
+                aux_has_sulfur_in_ring (1d) — S atom in ring → thione/sultam distinction
+                aux_is_bicyclic (1d) — norbornane-fused → Oppolzer face-shielding
+      Layer 3c: n_defined_stereocenters (1d)
+    """
+    # 4d one-hot (only mechanistically coherent auxiliaries)
+    aux_types = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"]
     aux_feats = {}
     for atype in aux_types:
-        col_name = f"aux_{atype}"
-        aux_feats[col_name] = (df["auxiliary_type"] == atype).astype(int)
+        aux_feats[f"aux_{atype}"] = (df["auxiliary_type"] == atype).astype(int)
 
-    # n_defined_stereocenters as a feature
+    # 3d mechanistic indicators (chemistry-driven, not arbitrary)
+    aux_feats["aux_has_thio"] = df["auxiliary_type"].isin(
+        ["crimmins_thione", "crimmins_oxathione"]
+    ).astype(int)
+    aux_feats["aux_has_sulfur_in_ring"] = df["auxiliary_type"].isin(
+        ["crimmins_thione", "oppolzer"]
+    ).astype(int)
+    aux_feats["aux_is_bicyclic"] = (df["auxiliary_type"] == "oppolzer").astype(int)
+
+    # 1d: stereocenter count
     aux_feats["n_defined_stereocenters"] = df["n_defined_stereocenters"].fillna(2)
 
     return pd.DataFrame(aux_feats)
@@ -767,13 +784,23 @@ def integrate_features(
 ):
     """Integrate all features into a single matrix.
 
-    First 84 columns = steric(34) + conditions(50) + auxiliary(6) for backward compat.
-    New blocks appended: chirality(7) + rgroup(8) + chiralenv(21) + aldpri(8) + delta(16) + det(3).
+    Architecture (149d, mechanism-driven 3-layer design):
+      Layer 1 — Universal (132d): steric(34) + conditions(50) + chiralenv(21) + aldpri(8) + delta(16) + det(3)
+      Layer 2 — Evans/Crimmins shared (9d): C4_CIP(2) + R-group(7)  [Oppolzer fills 0]
+      Layer 3 — Auxiliary encoding (8d): one-hot(4) + mechanistic(3) + n_stereo(1)
     """
-    # Load condition features from V4 pipeline output
+    # Load condition features from V4 pipeline output — filter to match df rows
     cond_path = CLEAN_DIR / "condition_features.csv"
-    cond_df = pd.read_csv(cond_path)
-    print(f"  Conditions: {cond_df.shape[1]}d")
+    cond_full = pd.read_csv(cond_path)
+    # df may be a filtered subset (e.g. 2215 rows from 2334); align by using df's index
+    if len(cond_full) != len(df):
+        # df was filtered in main() — need to load full metadata to get original indices
+        df_full = pd.read_csv(CLEAN_DIR / "substrate_aldol_clean.csv")
+        valid_mask = df_full["auxiliary_type"].isin(["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"])
+        cond_df = cond_full[valid_mask.values].reset_index(drop=True)
+    else:
+        cond_df = cond_full
+    print(f"  Conditions: {cond_df.shape[1]}d ({cond_df.shape[0]} rows)")
 
     # Combine: backward-compatible 84d first, then new blocks
     blocks = [
@@ -828,9 +855,13 @@ def main():
     FEAT_DIR.mkdir(parents=True, exist_ok=True)
     CONF_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Load V4 clean data
-    df = pd.read_csv(CLEAN_CSV)
-    print(f"Loaded {len(df)} rows from {CLEAN_CSV}")
+    # Load V4 clean data — filter to mechanistically coherent auxiliaries only
+    df_full = pd.read_csv(CLEAN_CSV)
+    # Exclude other_auxiliary (95% acyclic N-sulfonamide, non-ZT) and myers (n=14, 79% class 1)
+    VALID_AUX = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"]
+    df = df_full[df_full["auxiliary_type"].isin(VALID_AUX)].reset_index(drop=True)
+    print(f"Loaded {len(df_full)} rows, kept {len(df)} with valid auxiliaries "
+          f"(excluded {len(df_full)-len(df)} other/myers)")
 
     # --- B1: Conformer generation ---
     print("\n--- Phase B1: Conformer Generation ---")

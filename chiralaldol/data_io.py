@@ -96,6 +96,12 @@ def load_mechaware_bw(feat_dir=None, feat_names=None):
         X_base = X_df.values.astype(np.float32)
         np.nan_to_num(X_base, copy=False)
 
+    # Check row count match (MechAware may be stale after data filtering)
+    if X_bw.shape[0] != X_base.shape[0]:
+        logger.warning("MechAware BW rows (%d) != features rows (%d), skipping",
+                        X_bw.shape[0], X_base.shape[0])
+        return None
+
     new_idx = [i for i, c in enumerate(feat_names)
                if c.startswith(CHIRALITY_PREFIXES)]
     X_new = X_base[:, new_idx]
@@ -125,6 +131,11 @@ def load_mechaware_full(feat_dir=None, feat_names=None):
         X_df, _ = load_features(feat_dir)
         X_base = X_df.values.astype(np.float32)
         np.nan_to_num(X_base, copy=False)
+
+    if X_full.shape[0] != X_base.shape[0]:
+        logger.warning("MechAware Full rows (%d) != features rows (%d), skipping",
+                        X_full.shape[0], X_base.shape[0])
+        return None
 
     new_idx = [i for i, c in enumerate(feat_names)
                if c.startswith(CHIRALITY_PREFIXES)]
