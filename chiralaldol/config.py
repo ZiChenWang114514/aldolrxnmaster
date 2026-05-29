@@ -21,3 +21,6 @@ N_JOBS = 8
 
 # Valid auxiliary types (mechanistically well-defined for ZT aldol)
 VALID_AUXILIARIES = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"]
+
+# SPMS feature paths
+SPMS_DIR = FEAT_DIR / "spms"
