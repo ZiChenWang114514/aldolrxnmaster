@@ -164,9 +164,10 @@ def load_mechaware_bw_features():
     X_bw = pd.read_csv(bw_path).values.astype(np.float32)
     np.nan_to_num(X_bw, copy=False)
 
-    # Append chirality/rgroup/chiralenv/aldpri features
+    # Append chirality/rgroup/chiralenv/aldpri/delta_chiral/chiral_det features
     new_idx = [i for i, c in enumerate(feat_names)
-               if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_", "ald_pri_"))]
+               if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_",
+                                "ald_pri_", "delta_chiral_", "chiral_det_"))]
     X_new = X_base[:, new_idx]
     return np.hstack([X_bw, X_new])
 

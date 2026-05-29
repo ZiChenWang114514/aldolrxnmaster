@@ -201,7 +201,8 @@ def load_ma_full_plus(X, y, feat_names):
         return X
     # Append new V4b features (chiral + rgroup + chiralenv + aldpri) to MechAware
     new_idx = [i for i, c in enumerate(feat_names)
-               if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_", "ald_pri_"))]
+               if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_",
+                                "ald_pri_", "delta_chiral_", "chiral_det_"))]
     X_new = X[:, new_idx] if new_idx else np.zeros((len(X), 0), dtype=np.float32)
     return np.hstack([_MA_FULL, X_new])
 
@@ -212,7 +213,8 @@ def load_ma_bw_plus(X, y, feat_names):
     if _MA_BW is None:
         return X
     new_idx = [i for i, c in enumerate(feat_names)
-               if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_", "ald_pri_"))]
+               if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_",
+                                "ald_pri_", "delta_chiral_", "chiral_det_"))]
     X_new = X[:, new_idx] if new_idx else np.zeros((len(X), 0), dtype=np.float32)
     return np.hstack([_MA_BW, X_new])
 

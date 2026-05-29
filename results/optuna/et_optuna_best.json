@@ -1,20 +1,20 @@
 {
   "model": "et_optuna",
-  "best_tscv": 0.6565,
+  "best_tscv": 0.6669,
   "fold_scores": [
-    0.6216,
-    0.6702,
-    0.6898,
-    0.6444
+    0.5987,
+    0.65,
+    0.7643,
+    0.6545
   ],
-  "mean": 0.6565,
-  "std": 0.0258,
+  "mean": 0.6669,
+  "std": 0.0604,
   "best_params": {
-    "n_estimators": 750,
-    "max_depth": 50,
-    "min_samples_split": 13,
+    "n_estimators": 950,
+    "max_depth": 30,
+    "min_samples_split": 10,
     "min_samples_leaf": 1,
-    "max_features": 0.3
+    "max_features": "log2"
   },
   "n_trials": 200
 }

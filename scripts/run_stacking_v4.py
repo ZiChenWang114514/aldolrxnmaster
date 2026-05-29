@@ -61,7 +61,8 @@ def load_data():
         np.nan_to_num(X_bw, copy=False)
         # Append chirality/rgroup/chiralenv/aldpri from V4b
         new_idx = [i for i, c in enumerate(feat_names)
-                   if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_", "ald_pri_"))]
+                   if c.startswith(("chiral_", "aux_rg_", "aux_oppolzer", "chiralenv_",
+                                "ald_pri_", "delta_chiral_", "chiral_det_"))]
         X_ma = np.hstack([X_bw, X_v4b[:, new_idx]])
     else:
         X_ma = X_v4b  # fallback
