@@ -561,5 +561,8 @@ v3_original/                    V3 原始文件（只读参考）
 | V4d | 2026-05-27 | **2334** | 0.624 | ≈ V4c | +46行(保护OH)+3D syn/anti 标签 |
 | V4d-SA | 2026-05-27 | 2304 | 0.423 | — | RS-SynAnti 实验，已放弃 |
 | V4d Stacking | 2026-05-28 | 2334 | 0.617 | — | ET+XGB+MA-BW→LR，未提升 |
-| **V4d Optuna** | 2026-05-28 | **2334** | **0.666** | **+6.7%** | ma_bw_xgb_optuna 🏆 新冠军 |
-| Evans-only | 2026-05-28 | 1654 | 0.771 | — | per-auxiliary 分层（非独立模型） |
+| V4d Optuna (128d) | 2026-05-28 | 2334 | 0.666 | +6.7% | ma_bw_xgb_optuna (128d 参数) |
+| **V4d Optuna (153d)** | 2026-05-28 | **2334** | **0.657** | **+5.3%** | ma_bw_xgb (153d 重搜) |
+| Chemprop+Features | 2026-05-28 | 2334 | 0.626 | — | MPNN baseline, Grouped=0.789 |
+| Chemprop (纯SMILES) | 2026-05-28 | 2334 | 0.601 | — | MPNN 无手工特征 |
+| Evans-only ET | 2026-05-28 | 1654 | 0.710 | — | 辅基独立建模 |

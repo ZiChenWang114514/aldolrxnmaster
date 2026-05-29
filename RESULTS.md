@@ -13,23 +13,30 @@
 **无泄漏**: role-aware group_id, DRFP 已排除, 手性特征仅从酮 SMILES 提取
 **3D syn/anti**: step08b 二面角法计算 label_syn_anti_3d（98.7% 成功率），仅作分析标签
 
-### Champion: ma_bw_xgb_optuna (TSCV = 0.669 on 153d, Optuna-tuned)
+### Champion: ma_bw_xgb_optuna (TSCV = 0.657, 153d, Optuna-tuned)
 
-### Optuna-Tuned Models (2026-05-28)
+### Optuna-Tuned Models on 153d (2026-05-28, re-searched on 153d features)
 
-Optuna 200 trials per model, optimized on TSCV balanced accuracy:
+Optuna 200 trials per model on 153d features, full splits benchmark:
 
 | Rank | Model | Category | Dim | TSCV mean±std | Scaffold | Grouped mean±std |
 |------|-------|----------|-----|---------------|----------|-----------------|
-| 1 | **ma_bw_xgb_optuna** | optuna | 156d | **0.666±0.029** | 0.593 | 0.740±0.017 |
-| 2 | et_optuna | optuna | 128d | 0.638±0.040 | 0.594 | 0.759±0.023 |
-| 3 | xgb_optuna | optuna | 128d | 0.628±0.046 | **0.618** | **0.763±0.025** |
+| 1 | **ma_bw_xgb_optuna** | optuna | 175d | **0.657±0.054** | 0.593 | 0.752±0.020 |
+| 2 | et_optuna | optuna | 153d | 0.642±0.052 | 0.583 | 0.730±0.029 |
+| 3 | xgb_optuna | optuna | 153d | 0.638±0.052 | **0.612** | **0.760±0.027** |
 
-Key Optuna findings:
-- **Low learning rate**: XGB lr=0.015, MA-BW lr=0.01 (defaults were 0.05-0.15) — strong overfitting reduction
-- **High gamma regularization**: gamma ≈ 0.8-0.9 (default 0.1) — stricter split penalty
-- **Lower feature sampling**: colsample_bytree 0.35-0.50 (default 0.6-0.7)
-- **ET max_features=0.3**: vs default sqrt(≈0.09), features have strong interaction effects
+### Chemprop v2 MPNN Baseline (2026-05-28)
+
+| Rank | Model | Input | TSCV mean±std | Scaffold | Grouped mean±std |
+|------|-------|-------|---------------|----------|-----------------|
+| 4 | Chemprop+Features | SMILES+153d | 0.626±0.032 | 0.594 | **0.789±0.010** |
+| 5 | Chemprop | SMILES only | 0.601±0.032 | 0.616 | 0.730±0.013 |
+
+Key findings:
+- **Tree > MPNN on TSCV** (+0.031): handcrafted features generalize better across time
+- **MPNN > Tree on Grouped** (+0.037): neural graph representation captures more in-distribution patterns
+- **153d features help MPNN**: Chemprop+Features (0.626) >> Chemprop (0.601), confirming 153d provides signal beyond SMILES
+- **Low learning rate + strong gamma** remain the dominant Optuna pattern across both 128d and 153d
 
 ### Default Models (V4d baseline)
 
@@ -60,13 +67,13 @@ Key Optuna findings:
 
 **分析**: 新增 46 行（保护 OH 模板扩展）后 ma_bw_xgb 轻微下降（-0.021 TSCV），v4b_full_et 轻微上升（+0.003），总体在正常波动范围内。V4d 冠军由 ExtraTrees 128d 夺得，MechAware BW 在 Grouped 上仍最强。
 
-### V4 → V4d-Optuna 改进历程
+### V4 → V4d-153d 改进历程
 
-| 指标 | V4 (84d) | V4b (120d) | V4c (128d) | V4d default | V4d Optuna | 总提升 |
-|------|----------|-----------|-----------|------------|-----------|--------|
-| TSCV champion | 0.507 | 0.565 | 0.625 | 0.624 | **0.666** | **+31.4%** |
-| Grouped champion | 0.662 | 0.694 | 0.773 | 0.752 | **0.763** | **+15.3%** |
-| Scaffold champion | 0.480 | 0.513 | 0.607 | 0.613 | **0.618** | **+28.7%** |
+| 指标 | V4 (84d) | V4b (120d) | V4d default (128d) | V4d Optuna (153d) | Chemprop+Feat | 总提升 |
+|------|----------|-----------|-------------------|------------------|--------------|--------|
+| TSCV champion | 0.507 | 0.565 | 0.624 | **0.657** | 0.626 | **+29.6%** |
+| Grouped champion | 0.662 | 0.694 | 0.752 | 0.760 | **0.789** | **+19.2%** |
+| Scaffold champion | 0.480 | 0.513 | 0.613 | 0.612 | **0.616** | **+28.3%** |
 
 ### 新增特征 (44d over V4 baseline)
 
