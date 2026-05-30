@@ -32,7 +32,7 @@ from chiralaldol.config import (
     CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPMS_DIR,
     VALID_AUXILIARIES,
 )
-from chiralaldol.data_io import load_splits, prepare_Xy, save_predictions
+from chiralaldol.data_io import load_features, load_splits, prepare_Xy, save_predictions
 from chiralaldol.gnn.zt_dataset import zt_graph_to_pyg
 from chiralaldol.gnn.zt_models import ZTGIN
 from chiralaldol.spms_compressor import extract_spms_stats
@@ -55,7 +55,7 @@ def load_evans_data_with_spms(feat_type="spms"):
     _, y_all, valid_mask, _ = prepare_Xy()
 
     # Load base features
-    X_base = pd.read_csv(FEAT_DIR / "v4_features.csv").values.astype(np.float32)
+    X_base = load_features()[0].values.astype(np.float32)
     np.nan_to_num(X_base, copy=False)
 
     # Augment with SPMS or Face Map
@@ -238,7 +238,7 @@ def run_chemprop_experiment(feat_type, device):
     splits = load_splits()
 
     # Load features
-    X_base = pd.read_csv(FEAT_DIR / "v4_features.csv").values.astype(np.float32)
+    X_base = load_features()[0].values.astype(np.float32)
     np.nan_to_num(X_base, copy=False)
 
     if feat_type == "baseline":

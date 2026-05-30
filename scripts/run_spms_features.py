@@ -23,6 +23,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR, SPMS_DIR, VALID_AUXILIARIES
+from chiralaldol.data_io import load_features
 from chiralaldol.spms import (
     compute_spms_ensemble,
     find_alpha_carbon,
@@ -186,7 +187,7 @@ def phase_b_compress(method="autoencoder", latent_dim=16):
     feat_names = [f"spms_{method}_{i}" for i in range(latent.shape[1])]
 
     # Load existing features and append
-    existing = pd.read_csv(FEAT_DIR / "v4_features.csv")
+    existing, _ = load_features()
     if len(existing) != n_rows:
         logger.warning(f"Feature rows ({len(existing)}) != data rows ({n_rows})")
         return
@@ -199,7 +200,7 @@ def phase_b_compress(method="autoencoder", latent_dim=16):
     spms_df = pd.DataFrame(latent, columns=feat_names)
     combined = pd.concat([existing, spms_df], axis=1)
 
-    out_path = FEAT_DIR / "v4_features_spms.csv"
+    out_path = FEAT_DIR / "v5_features_spms.csv"
     combined.to_csv(out_path, index=False)
     logger.info(f"Saved {combined.shape[1]}d features to {out_path}")
 

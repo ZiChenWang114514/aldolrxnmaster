@@ -21,7 +21,7 @@ from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import FEAT_DIR, PRED_DIR, RESULTS_DIR, SPMS_DIR
-from chiralaldol.data_io import load_labels, load_splits, save_predictions
+from chiralaldol.data_io import load_features, load_labels, load_splits, save_predictions
 from chiralaldol.model_trainers import train_xgb, train_et, train_rf
 from chiralaldol.spms_compressor import extract_spms_stats
 
@@ -36,38 +36,35 @@ TABLE_DIR = RESULTS_DIR / "tables"
 
 def load_feature_set(name):
     """Load a feature set by name."""
+    base_df, _ = load_features()  # auto V5/V4 fallback
+
     if name == "baseline":
-        df = pd.read_csv(FEAT_DIR / "v4_features.csv")
+        df = base_df
     elif name == "spms_ae":
-        df = pd.read_csv(FEAT_DIR / "v4_features_spms.csv")
+        # Autoencoder-compressed SPMS appended to base features
+        latent = np.load(SPMS_DIR / "spms_latent.npy")
+        spms_cols = [f"spms_ae_{i}" for i in range(latent.shape[1])]
+        df = pd.concat([base_df, pd.DataFrame(latent, columns=spms_cols)], axis=1)
     elif name == "spms_pca":
-        # Load baseline + PCA-compressed SPMS
-        base = pd.read_csv(FEAT_DIR / "v4_features.csv")
-        latent = np.load(SPMS_DIR / "spms_latent.npy")  # may be PCA
+        latent = np.load(SPMS_DIR / "spms_latent.npy")
         spms_cols = [f"spms_pca_{i}" for i in range(latent.shape[1])]
-        spms_df = pd.DataFrame(latent, columns=spms_cols)
-        df = pd.concat([base, spms_df], axis=1)
+        df = pd.concat([base_df, pd.DataFrame(latent, columns=spms_cols)], axis=1)
     elif name == "spms_stats":
         spms_arrays = np.load(SPMS_DIR / "spms_arrays.npy")
-        base = pd.read_csv(FEAT_DIR / "v4_features.csv")
         stats, stat_names = extract_spms_stats(spms_arrays)
-        spms_df = pd.DataFrame(stats, columns=stat_names)
-        df = pd.concat([base, spms_df], axis=1)
+        df = pd.concat([base_df, pd.DataFrame(stats, columns=stat_names)], axis=1)
     elif name == "spms_only":
         latent = np.load(SPMS_DIR / "spms_latent.npy")
         cols = [f"spms_{i}" for i in range(latent.shape[1])]
         df = pd.DataFrame(latent, columns=cols)
     elif name == "face_map":
-        base = pd.read_csv(FEAT_DIR / "v4_features.csv")
         face = pd.read_csv(SPMS_DIR / "face_map_features.csv")
-        df = pd.concat([base, face], axis=1)
+        df = pd.concat([base_df, face], axis=1)
     elif name == "spms_face":
-        base = pd.read_csv(FEAT_DIR / "v4_features.csv")
         spms_arrays = np.load(SPMS_DIR / "spms_arrays.npy")
         stats, stat_names = extract_spms_stats(spms_arrays)
-        spms_df = pd.DataFrame(stats, columns=stat_names)
         face = pd.read_csv(SPMS_DIR / "face_map_features.csv")
-        df = pd.concat([base, spms_df, face], axis=1)
+        df = pd.concat([base_df, pd.DataFrame(stats, columns=stat_names), face], axis=1)
     else:
         raise ValueError(f"Unknown feature set: {name}")
 
