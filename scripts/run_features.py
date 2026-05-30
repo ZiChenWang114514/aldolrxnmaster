@@ -741,22 +741,29 @@ def compute_chiral_determinant(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_auxiliary_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Compute auxiliary type encoding (4d one-hot) + mechanistic indicators (3d + 1d).
+    """Compute auxiliary type encoding + mechanistic indicators.
 
-    Architecture:
-      Layer 3a: aux_type one-hot (4d) — categorical identity
-      Layer 3b: aux_has_thio (1d) — C=S in auxiliary ring → Crimmins chelation mode
-                aux_has_sulfur_in_ring (1d) — S atom in ring → thione/sultam distinction
-                aux_is_bicyclic (1d) — norbornane-fused → Oppolzer face-shielding
+    V5 Architecture:
+      Layer 3a: aux_type one-hot (9d) — all VALID_AUXILIARIES except borneol_ester (0 rows)
+      Layer 3b: mechanistic indicators (6d):
+                aux_has_thio — C=S in auxiliary ring → Crimmins chelation mode
+                aux_has_sulfur_in_ring — S atom in ring → thione/sultam distinction
+                aux_is_bicyclic — norbornane-fused → Oppolzer face-shielding
+                aux_is_ester — chiral ester auxiliary (menthyl/borneol/abiko)
+                aux_is_acyclic — no cyclic auxiliary ring (Myers)
+                aux_is_oxazoline — oxazoline ring (different chelation from oxazolidinone)
       Layer 3c: n_defined_stereocenters (1d)
     """
-    # 4d one-hot (only mechanistically coherent auxiliaries)
-    aux_types = ["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"]
+    # 9d one-hot (all V5 auxiliary types with data)
+    aux_types = [
+        "evans", "crimmins_thione", "crimmins_oxathione", "oppolzer",
+        "myers", "abiko", "super_quat", "menthyl_ester", "oxazoline",
+    ]
     aux_feats = {}
     for atype in aux_types:
         aux_feats[f"aux_{atype}"] = (df["auxiliary_type"] == atype).astype(int)
 
-    # 3d mechanistic indicators (chemistry-driven, not arbitrary)
+    # 6d mechanistic indicators (chemistry-driven)
     aux_feats["aux_has_thio"] = df["auxiliary_type"].isin(
         ["crimmins_thione", "crimmins_oxathione"]
     ).astype(int)
@@ -764,6 +771,11 @@ def compute_auxiliary_features(df: pd.DataFrame) -> pd.DataFrame:
         ["crimmins_thione", "oppolzer"]
     ).astype(int)
     aux_feats["aux_is_bicyclic"] = (df["auxiliary_type"] == "oppolzer").astype(int)
+    aux_feats["aux_is_ester"] = df["auxiliary_type"].isin(
+        ["menthyl_ester", "borneol_ester", "abiko"]
+    ).astype(int)
+    aux_feats["aux_is_acyclic"] = (df["auxiliary_type"] == "myers").astype(int)
+    aux_feats["aux_is_oxazoline"] = (df["auxiliary_type"] == "oxazoline").astype(int)
 
     # 1d: stereocenter count
     aux_feats["n_defined_stereocenters"] = df["n_defined_stereocenters"].fillna(2)
@@ -796,7 +808,7 @@ def integrate_features(
     if len(cond_full) != len(df):
         # df was filtered in main() — need to load full metadata to get original indices
         df_full = pd.read_csv(CLEAN_DIR / "substrate_aldol_clean.csv")
-        valid_mask = df_full["auxiliary_type"].isin(["evans", "crimmins_thione", "crimmins_oxathione", "oppolzer"])
+        valid_mask = df_full["auxiliary_type"].isin(VALID_AUXILIARIES)
         cond_df = cond_full[valid_mask.values].reset_index(drop=True)
     else:
         cond_df = cond_full
@@ -849,18 +861,17 @@ def integrate_features(
 def main():
     t0 = time.time()
     print("=" * 60)
-    print("V4 FEATURE ENGINEERING")
+    print("V5 FEATURE ENGINEERING")
     print("=" * 60)
 
     FEAT_DIR.mkdir(parents=True, exist_ok=True)
     CONF_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Load V4 clean data — filter to mechanistically coherent auxiliaries only
+    # Load V5 clean data — filter to VALID_AUXILIARIES
     df_full = pd.read_csv(CLEAN_CSV)
-    # Exclude other_auxiliary (95% acyclic N-sulfonamide, non-ZT) and myers (n=14, 79% class 1)
     df = df_full[df_full["auxiliary_type"].isin(VALID_AUXILIARIES)].reset_index(drop=True)
     print(f"Loaded {len(df_full)} rows, kept {len(df)} with valid auxiliaries "
-          f"(excluded {len(df_full)-len(df)} other/myers)")
+          f"(excluded {len(df_full)-len(df)} other_auxiliary)")
 
     # --- B1: Conformer generation ---
     print("\n--- Phase B1: Conformer Generation ---")
@@ -923,8 +934,8 @@ def main():
         delta_chiral_df=delta_chiral_df,
         chiral_det_df=chiral_det_df,
     )
-    feat_df.to_csv(FEAT_DIR / "v4_features.csv", index=False)
-    print(f"  Saved v4_features.csv ({feat_df.shape})")
+    feat_df.to_csv(FEAT_DIR / "v5_features.csv", index=False)
+    print(f"  Saved v5_features.csv ({feat_df.shape})")
 
     # Labels
     labels = df[["label_Ca", "label_Cb", "label_SA", "label_joint", "label_confidence"]].copy()

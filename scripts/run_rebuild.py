@@ -28,14 +28,16 @@ from chiralaldol.rebuild import (
     step12_audit_output,
 )
 from chiralaldol.rebuild.audit import AuditTracker
-from chiralaldol.rebuild.utils import setup_logging
+
+import logging
 
 
 def main():
-    setup_logging()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     t0 = time.time()
     print("=" * 60)
-    print("V4 REBUILD: Raw Reaxys -> Substrate-Controlled Aldol")
+    print("V5 REBUILD: Raw Reaxys -> Substrate-Controlled Aldol")
+    print("  (V5: expanded auxiliaries + ester SMARTS + label recovery)")
     print("=" * 60)
 
     # Initial row count for audit

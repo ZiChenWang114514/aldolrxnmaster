@@ -10,6 +10,8 @@ from rdkit.Chem import Descriptors
 from .audit import AuditTracker
 from .constants import (
     ALDOL_PRODUCT_SMARTS_AUX,
+    ALDOL_PRODUCT_SMARTS_ESTER,
+    ALDOL_PRODUCT_SMARTS_OXAZ,
     ALDOL_PRODUCT_SMARTS_GENERIC,
     ALDEHYDE_SMARTS,
     DEHYDRATION_SMARTS,
@@ -21,10 +23,20 @@ logger = logging.getLogger("rebuild_v4.step02")
 
 # Pre-compile SMARTS
 _PAT_AUX = Chem.MolFromSmarts(ALDOL_PRODUCT_SMARTS_AUX)
+_PAT_ESTER = Chem.MolFromSmarts(ALDOL_PRODUCT_SMARTS_ESTER)
+_PAT_OXAZ = Chem.MolFromSmarts(ALDOL_PRODUCT_SMARTS_OXAZ)
 _PAT_GENERIC = Chem.MolFromSmarts(ALDOL_PRODUCT_SMARTS_GENERIC)
 _PAT_DEHYDRATION = Chem.MolFromSmarts(DEHYDRATION_SMARTS)
 _PAT_ALDEHYDE = Chem.MolFromSmarts(ALDEHYDE_SMARTS)
 _AUX_PATS = {k: Chem.MolFromSmarts(v) for k, v in AUXILIARY_SMARTS.items()}
+
+# All product patterns in priority order (amide > ester > oxazoline > generic)
+_PRODUCT_PATS = [
+    ("aux", _PAT_AUX),
+    ("ester", _PAT_ESTER),
+    ("oxaz", _PAT_OXAZ),
+    ("generic", _PAT_GENERIC),
+]
 
 
 def _identify_main_product(
@@ -54,7 +66,11 @@ def _identify_main_product(
                 if not (_PAT_GENERIC and mol.HasSubstructMatch(_PAT_GENERIC)):
                     continue
 
-        has_aux_product = _PAT_AUX and mol.HasSubstructMatch(_PAT_AUX)
+        # Check all product patterns (amide, ester, oxazoline, generic)
+        has_typed_product = any(
+            pat and mol.HasSubstructMatch(pat)
+            for name, pat in _PRODUCT_PATS if name != "generic"
+        )
         has_generic_product = _PAT_GENERIC and mol.HasSubstructMatch(_PAT_GENERIC)
         has_auxiliary = any(pat and mol.HasSubstructMatch(pat) for pat in _AUX_PATS.values())
 
@@ -62,7 +78,7 @@ def _identify_main_product(
             "smiles": smi,
             "mol": mol,
             "mw": mw,
-            "has_aux_product": has_aux_product,
+            "has_aux_product": has_typed_product,
             "has_generic_product": has_generic_product,
             "has_auxiliary": has_auxiliary,
         })

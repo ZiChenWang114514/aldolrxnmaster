@@ -12,21 +12,28 @@ from .utils import safe_mol
 
 logger = logging.getLogger("rebuild_v4.step06")
 
-# Product template: :1 = Cb (OH-bearing), :2 = Ca (alpha to C=O-N)
+# Product template: :1 = Cb (OH-bearing), :2 = Ca (alpha to C=O)
 # Order matters: aux-specific templates checked first; protected-OH added for failed mappings
 _PRODUCT_TEMPLATES_RAW = {
     # Free OH, amide (Evans/Crimmins/Myers)
     "aux":            "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]",
+    # Free OH, ester (V5: menthyl/borneol/abiko chiral ester auxiliaries)
+    "ester":          "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])[CX3](=[OX1])[OX2]",
+    # Oxazoline-type (V5: Meyers' oxazoline auxiliary)
+    "oxaz":           "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])C1=N[CH]CO1",
     # Free OH, generic carbonyl (Oppolzer sulfonamide etc.)
     "generic":        "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])[CX3](=[OX1])",
     # Silyl ether protection (TBS/TMS/TIPS): O-SiX4
     "aux_silyl":      "[CX4:1]([OX2][SiX4])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]",
+    "ester_silyl":    "[CX4:1]([OX2][SiX4])([#6])[CX4:2]([#6])[CX3](=[OX1])[OX2]",
     "generic_silyl":  "[CX4:1]([OX2][SiX4])([#6])[CX4:2]([#6])[CX3](=[OX1])",
     # Benzyl ether protection (OBn/PMB): O-CH2-aryl or O-CH2-alkyl
     "aux_bn":         "[CX4:1]([OX2][CH2][c,C])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]",
+    "ester_bn":       "[CX4:1]([OX2][CH2][c,C])([#6])[CX4:2]([#6])[CX3](=[OX1])[OX2]",
     "generic_bn":     "[CX4:1]([OX2][CH2][c,C])([#6])[CX4:2]([#6])[CX3](=[OX1])",
     # Acetal/MOM/THP ether: O-CX4-O (methoxymethyl, tetrahydropyranyl, etc.)
     "aux_acetal":     "[CX4:1]([OX2][CX4][OX2])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]",
+    "ester_acetal":   "[CX4:1]([OX2][CX4][OX2])([#6])[CX4:2]([#6])[CX3](=[OX1])[OX2]",
     "generic_acetal": "[CX4:1]([OX2][CX4][OX2])([#6])[CX4:2]([#6])[CX3](=[OX1])",
 }
 

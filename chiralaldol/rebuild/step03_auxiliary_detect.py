@@ -11,6 +11,7 @@ from .constants import (
     GENERIC_AUXILIARY_SMARTS,
     CHIRAL_CATALYST_KEYWORDS,
     CHIRAL_CATALYSIS_NAMED_REACTIONS,
+    YNAMIDE_EXCLUDE_SMARTS,
 )
 from .utils import safe_mol
 
@@ -19,6 +20,10 @@ logger = logging.getLogger("rebuild_v4.step03")
 # Pre-compile SMARTS
 _AUX_PATS = {k: Chem.MolFromSmarts(v) for k, v in AUXILIARY_SMARTS.items()}
 _GENERIC_PATS = [Chem.MolFromSmarts(s) for s in GENERIC_AUXILIARY_SMARTS]
+_YNAMIDE_PAT = Chem.MolFromSmarts(YNAMIDE_EXCLUDE_SMARTS)
+
+# Ester-type auxiliaries: detect on reactant side only (like Myers)
+_ESTER_AUX_TYPES = {"menthyl_ester", "borneol_ester", "abiko", "oxazoline"}
 
 
 def _detect_auxiliary(ketone_smi: str, product_smi: str, rxn_smi: str) -> str:
@@ -30,7 +35,7 @@ def _detect_auxiliary(ketone_smi: str, product_smi: str, rxn_smi: str) -> str:
 
     Returns auxiliary type string or 'none'.
     """
-    # Cyclic auxiliaries: safe to check both ketone and product
+    # Cyclic N-acyl auxiliaries: safe to check both ketone and product
     cyclic_types = {"evans", "crimmins_thione", "crimmins_oxathione", "oppolzer", "super_quat"}
     for smi in [ketone_smi, product_smi]:
         mol = safe_mol(smi)
@@ -42,12 +47,15 @@ def _detect_auxiliary(ketone_smi: str, product_smi: str, rxn_smi: str) -> str:
             if pat and mol.HasSubstructMatch(pat):
                 return aux_type
 
-    # Acyclic auxiliaries (Myers): check ONLY reactant side
+    # Acyclic/ester auxiliaries: check ONLY reactant side
+    # (Myers, Abiko, menthyl_ester, borneol_ester, oxazoline)
+    reactant_only_types = {"myers"} | _ESTER_AUX_TYPES
+
     # Check ketone directly
     ketone_mol = safe_mol(ketone_smi)
     if ketone_mol is not None:
         for aux_type, pat in _AUX_PATS.items():
-            if aux_type in cyclic_types:
+            if aux_type not in reactant_only_types:
                 continue
             if pat and ketone_mol.HasSubstructMatch(pat):
                 return aux_type
@@ -60,7 +68,7 @@ def _detect_auxiliary(ketone_smi: str, product_smi: str, rxn_smi: str) -> str:
             if mol is None:
                 continue
             for aux_type, pat in _AUX_PATS.items():
-                if aux_type in cyclic_types:
+                if aux_type not in reactant_only_types:
                     continue
                 if pat and mol.HasSubstructMatch(pat):
                     return aux_type
@@ -72,6 +80,11 @@ def _detect_auxiliary(ketone_smi: str, product_smi: str, rxn_smi: str) -> str:
             continue
         for pat in _GENERIC_PATS:
             if pat and mol.HasSubstructMatch(pat):
+                # Exclude ynamide (keteniminium mechanism)
+                if _YNAMIDE_PAT:
+                    mol_check = safe_mol(smi)
+                    if mol_check and mol_check.HasSubstructMatch(_YNAMIDE_PAT):
+                        return "ynamide_excluded"
                 return "other_auxiliary"
 
     return "none"
@@ -129,6 +142,13 @@ def run(df: pd.DataFrame, audit: AuditTracker) -> pd.DataFrame:
     audit.record_drop("03_auxiliary_detect", df.loc[no_aux, "_orig_idx"], "no_chiral_auxiliary")
     df = df[~no_aux].reset_index(drop=True)
     logger.info(f"  After auxiliary filter: {len(df)} rows")
+
+    # --- Filter 1b (V5): Exclude ynamide reactions (keteniminium mechanism) ---
+    is_ynamide = df["auxiliary_type"] == "ynamide_excluded"
+    if is_ynamide.sum() > 0:
+        audit.record_drop("03_auxiliary_detect", df.loc[is_ynamide, "_orig_idx"], "ynamide_excluded")
+        df = df[~is_ynamide].reset_index(drop=True)
+        logger.info(f"  After ynamide exclusion: {len(df)} rows")
 
     # --- Filter 2: Exclude chiral catalysis ---
     catalyst_col = "Catalyst" if "Catalyst" in df.columns else None

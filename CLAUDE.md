@@ -2,15 +2,17 @@
 
 基于底物控制（手性辅基）的 aldol 反应 4-class 立体化学预测。
 
-## 当前状态 (2026-05-28)
+## 当前状态 (2026-05-30)
 
-- **数据**: V4d 管线从 134K Reaxys 原始数据重建，**2334 行**（6 种辅基类型）
-- **辅基类型**: Evans (1654) + Crimmins thione (259) + Crimmins oxathione (161) + Oppolzer (141) + Other (105) + Myers (14)
-- **冠军**: **ma_bw_xgb_optuna** (175d), TSCV = **0.657**, Grouped = **0.752** (Optuna-tuned on 153d)
-- **特征**: Steric(34d) + Conditions(50d) + Auxiliary(6d) + Chirality(7d) + R-group(8d) + ChiralEnv(21d) + AldPriority(8d) + DeltaChiral(16d) + ChiralDet(3d) = **153d**
+- **数据**: V5 管线从 134K Reaxys 原始数据重建，**2434 行**（9 种辅基类型 + 7 other）
+- **辅基类型**: Evans (1661) + Crimmins thione (260) + Crimmins oxathione (169) + Oppolzer (141) + **Abiko (127)** + **Menthyl ester (32)** + **Oxazoline (21)** + **Myers (16)** + Other (7)
+- **V5 新增**: 5 种新辅基 SMARTS (abiko/menthyl/borneol/oxazoline/super_quat)，宽泛 Myers SMARTS，酯型/恶唑啉型产物 SMARTS，ynamide 排除，step08 标签恢复
+- **VALID_AUXILIARIES**: 10 种（+6 vs V4），**2427 行** (vs V4 的 2215 行, +9.6%)
+- **冠军** (V4): **ma_bw_xgb_optuna** (175d), TSCV = **0.657**, Grouped = **0.752** (Optuna-tuned on 153d)
+- **特征** (V4, 待 V5 更新): Steric(34d) + Conditions(50d) + Auxiliary(6d) + Chirality(7d) + R-group(8d) + ChiralEnv(21d) + AldPriority(8d) + DeltaChiral(16d) + ChiralDet(3d) = **154d**
 - **泄漏已排除**: DRFP 已确认标签泄漏（产物 @/@@ 编码答案），不再使用；手性特征仅从酮 SMILES 提取
 - **标签编码**: 4-class `label_joint = Ca × 2 + Cb` (R=0, S=1); 2-class `label_SA` (CIP 启发式，非 syn/anti)
-- **3D syn/anti**: `label_syn_anti_3d` 由 step08b 3D 二面角法计算（98.7% 成功率），仅作分析标签不入 ML 特征
+- **3D syn/anti**: `label_syn_anti_3d` 由 step08b 3D 二面角法计算（97.9% 成功率），仅作分析标签不入 ML 特征
 
 ## 环境
 

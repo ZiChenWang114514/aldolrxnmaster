@@ -19,10 +19,15 @@ CHIRALITY_PREFIXES = (
 
 
 def load_features(feat_dir=None):
-    """Load v4_features.csv. Returns (X_df, feature_names)."""
+    """Load feature matrix CSV. Returns (X_df, feature_names)."""
     feat_dir = Path(feat_dir) if feat_dir else FEAT_DIR
-    X_df = pd.read_csv(feat_dir / "v4_features.csv")
-    return X_df, list(X_df.columns)
+    # Try v5 first, fall back to v4
+    for name in ["v5_features.csv", "v4_features.csv"]:
+        path = feat_dir / name
+        if path.exists():
+            X_df = pd.read_csv(path)
+            return X_df, list(X_df.columns)
+    raise FileNotFoundError(f"No feature file found in {feat_dir}")
 
 
 def load_labels(feat_dir=None):

@@ -17,9 +17,9 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = PROJECT_DIR / "data"
 RAW_CSV = DATA_DIR / "data.csv"
-CLEAN_V4_DIR = DATA_DIR / "clean_v4"
+CLEAN_V4_DIR = DATA_DIR / "clean_v5"
 AUDIT_DIR = CLEAN_V4_DIR / "audit"
-INTERIM_DIR = DATA_DIR / "interim_v4"
+INTERIM_DIR = DATA_DIR / "interim_v5"
 
 # ==================== Reaxys column names ====================
 REAXYS_COLS = [
@@ -67,12 +67,26 @@ AUXILIARY_SMARTS = {
     # 5-membered sultam ring: N-C-C-C-S(=O)2 fused to norbornane
     "oppolzer": "[NX3]1[C][C]CS1(=O)=O",
 
-    # Myers pseudoephedrine amide (N-acyl form)
-    # C(=O)-N(CH3)-CH(CH3)-CH(OH)-Ph (acyclic, specific to pseudoephedrine)
-    "myers": "[CX3:1](=[OX1])N([CH3])[CH]([CH3])[CH]([OH1])c1ccccc1",
+    # Myers pseudoephedrine amide (N-acyl form, broadened V5)
+    # Covers N-methyl, N-benzyl, and OH-protected variants
+    "myers": "[CX3](=[OX1])N[CH]([CH3])[CH]([OH,O])c",
 
     # Super Quat: 4,4-disubstituted oxazolidinone (gem-disubstituted)
     "super_quat": "[C:1]1([*])([*])COC(=O)N1",
+
+    # Abiko: N-sulfonyl amino alcohol ester (V5 new)
+    # C(=O)-O-CH-CH-N(R)-SO2Ar
+    "abiko": "[CX3](=[OX1])O[CH][CH]N([*])S(=O)(=O)",
+
+    # Menthyl ester: L-menthol / 8-phenylmenthol chiral ester (V5 new)
+    "menthyl_ester": "C(=O)OC1CC(C(C)C)CCC1C",
+
+    # Borneol ester: isoborneol / borneol chiral ester (V5 new)
+    "borneol_ester": "C(=O)OC1CC2CCC1(C)C2(C)C",
+
+    # Oxazoline: Meyers' 2-oxazoline auxiliary (V5 new)
+    # 5-membered ring with C=N, different chelation from oxazolidinone
+    "oxazoline": "C1=N[CH]([*])CO1",
 }
 
 # Broader catch-all: any 5-membered heterocyclic amide/thioamide with chiral C
@@ -90,6 +104,12 @@ GENERIC_AUXILIARY_SMARTS = [
 # :2 = Ca (alpha-carbon, from enolate)
 ALDOL_PRODUCT_SMARTS_AUX = "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])[CX3](=[OX1])[NX3]"
 
+# Beta-hydroxy ester (V5: for menthyl/borneol/abiko chiral ester auxiliaries)
+ALDOL_PRODUCT_SMARTS_ESTER = "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])[CX3](=[OX1])[OX2]"
+
+# Oxazoline-type product (V5: Meyers' oxazoline auxiliary)
+ALDOL_PRODUCT_SMARTS_OXAZ = "[CX4:1]([OX2H1])([#6])[CX4:2]([#6])C1=N[CH]CO1"
+
 # Generic beta-hydroxy carbonyl (any aldol)
 ALDOL_PRODUCT_SMARTS_GENERIC = "[CX4]([OX2H1])([#6])[CX4]([#6])[CX3](=[OX1])"
 
@@ -98,6 +118,9 @@ DEHYDRATION_SMARTS = "[CX3](=[OX1])/[CX3]=[CX3]"
 
 # Aldehyde functional group (for reactant classification)
 ALDEHYDE_SMARTS = "[CX3H1](=O)"
+
+# Ynamide exclusion (V5: keteniminium mechanism, not substrate-controlled ZT)
+YNAMIDE_EXCLUDE_SMARTS = "[N]C#C"
 
 # ==================== Chiral catalyst exclusion ====================
 # Keywords in Catalyst/Reagent fields that indicate chiral catalysis (NOT substrate control)
