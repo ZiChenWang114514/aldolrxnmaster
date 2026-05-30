@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from chiralaldol.config import FEAT_DIR, PRED_DIR, RESULTS_DIR, SPMS_DIR
 from chiralaldol.data_io import load_labels, load_splits, save_predictions
 from chiralaldol.model_trainers import train_xgb, train_et, train_rf
+from chiralaldol.spms_compressor import extract_spms_stats
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("spms_benchmark")
@@ -47,24 +48,10 @@ def load_feature_set(name):
         spms_df = pd.DataFrame(latent, columns=spms_cols)
         df = pd.concat([base, spms_df], axis=1)
     elif name == "spms_stats":
-        # Compute stats on the fly
         spms_arrays = np.load(SPMS_DIR / "spms_arrays.npy")
         base = pd.read_csv(FEAT_DIR / "v4_features.csv")
-        feats = []
-        names = []
-        for ch, ch_name in enumerate(["ket", "ald"]):
-            arr = spms_arrays[:, ch]  # (N, 10, 20)
-            for stat_name, stat_fn in [
-                ("mean", lambda a: a.mean(axis=(1, 2))),
-                ("std", lambda a: a.std(axis=(1, 2))),
-                ("min", lambda a: a.min(axis=(1, 2))),
-                ("max", lambda a: a.max(axis=(1, 2))),
-                ("asymm", lambda a: (a[:, :5, :].mean(axis=(1, 2)) -
-                                     a[:, 5:, :].mean(axis=(1, 2)))),
-            ]:
-                feats.append(stat_fn(arr))
-                names.append(f"spms_{ch_name}_{stat_name}")
-        spms_df = pd.DataFrame(np.column_stack(feats), columns=names)
+        stats, stat_names = extract_spms_stats(spms_arrays)
+        spms_df = pd.DataFrame(stats, columns=stat_names)
         df = pd.concat([base, spms_df], axis=1)
     elif name == "spms_only":
         latent = np.load(SPMS_DIR / "spms_latent.npy")
@@ -75,23 +62,10 @@ def load_feature_set(name):
         face = pd.read_csv(SPMS_DIR / "face_map_features.csv")
         df = pd.concat([base, face], axis=1)
     elif name == "spms_face":
-        # SPMS stats + Face Map combined
         base = pd.read_csv(FEAT_DIR / "v4_features.csv")
         spms_arrays = np.load(SPMS_DIR / "spms_arrays.npy")
-        feats, names = [], []
-        for ch, ch_name in enumerate(["ket", "ald"]):
-            arr = spms_arrays[:, ch]
-            for stat_name, stat_fn in [
-                ("mean", lambda a: a.mean(axis=(1, 2))),
-                ("std", lambda a: a.std(axis=(1, 2))),
-                ("min", lambda a: a.min(axis=(1, 2))),
-                ("max", lambda a: a.max(axis=(1, 2))),
-                ("asymm", lambda a: (a[:, :5, :].mean(axis=(1, 2)) -
-                                     a[:, 5:, :].mean(axis=(1, 2)))),
-            ]:
-                feats.append(stat_fn(arr))
-                names.append(f"spms_{ch_name}_{stat_name}")
-        spms_df = pd.DataFrame(np.column_stack(feats), columns=names)
+        stats, stat_names = extract_spms_stats(spms_arrays)
+        spms_df = pd.DataFrame(stats, columns=stat_names)
         face = pd.read_csv(SPMS_DIR / "face_map_features.csv")
         df = pd.concat([base, spms_df, face], axis=1)
     else:
@@ -112,7 +86,7 @@ def run_benchmark(feature_sets, models, splits):
     all_results = []
 
     for feat_name in feature_sets:
-        X, feat_cols = load_feature_set(feat_name)
+        X, _ = load_feature_set(feat_name)
         logger.info(f"\n{'='*50}\n  Feature set: {feat_name} ({X.shape[1]}d)\n{'='*50}")
 
         for model_name, trainer in models.items():

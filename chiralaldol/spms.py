@@ -13,14 +13,8 @@ Each SPMS matrix is a (n_theta × n_phi) grid where:
 
 import numpy as np
 from rdkit import Chem
-from rdkit.Chem import AllChem, rdMolDescriptors
 
-# van der Waals radii (Å) from Bondi/RDKit
-VDW_RADII = {
-    1: 1.20, 5: 1.92, 6: 1.70, 7: 1.55, 8: 1.52,
-    9: 1.47, 14: 2.10, 15: 1.80, 16: 1.80, 17: 1.75,
-    22: 1.87, 35: 1.85, 53: 1.98,
-}
+from .utils import VDW_RADII
 
 # SMARTS for target atoms
 ALPHA_C_SMARTS = Chem.MolFromSmarts("[CH2,CH;X3,X4:1]-[CX3:2](=[OX1:3])-[NX3:4]")

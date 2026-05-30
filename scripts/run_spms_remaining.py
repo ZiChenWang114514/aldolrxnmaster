@@ -11,7 +11,6 @@ Usage:
     CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_spms_remaining.py
 """
 
-import json
 import logging
 import pickle
 import sys
@@ -23,19 +22,20 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
+from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_class_weight
 from torch_geometric.loader import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import (
-    CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPLITS_DIR, SPMS_DIR,
+    CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPMS_DIR,
     VALID_AUXILIARIES,
 )
-from chiralaldol.data_io import load_labels, load_splits, prepare_Xy, save_predictions
+from chiralaldol.data_io import load_splits, prepare_Xy, save_predictions
 from chiralaldol.gnn.zt_dataset import zt_graph_to_pyg
 from chiralaldol.gnn.zt_models import ZTGIN
+from chiralaldol.spms_compressor import extract_spms_stats
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("spms_remaining")
@@ -61,15 +61,7 @@ def load_evans_data_with_spms(feat_type="spms"):
     # Augment with SPMS or Face Map
     if feat_type == "spms":
         spms_arrays = np.load(SPMS_DIR / "spms_arrays.npy")
-        extra = []
-        for ch in range(2):
-            arr = spms_arrays[:, ch]
-            extra.extend([
-                arr.mean(axis=(1, 2)), arr.std(axis=(1, 2)),
-                arr.min(axis=(1, 2)), arr.max(axis=(1, 2)),
-                arr[:, :5, :].mean(axis=(1, 2)) - arr[:, 5:, :].mean(axis=(1, 2)),
-            ])
-        X_extra = np.column_stack(extra).astype(np.float32)
+        X_extra, _ = extract_spms_stats(spms_arrays)
     elif feat_type == "face_map":
         face_df = pd.read_csv(SPMS_DIR / "face_map_features.csv")
         X_extra = face_df.values.astype(np.float32)
@@ -253,15 +245,8 @@ def run_chemprop_experiment(feat_type, device):
         X_feat = X_base
     elif feat_type == "spms":
         spms_arrays = np.load(SPMS_DIR / "spms_arrays.npy")
-        extra = []
-        for ch in range(2):
-            arr = spms_arrays[:, ch]
-            extra.extend([
-                arr.mean(axis=(1, 2)), arr.std(axis=(1, 2)),
-                arr.min(axis=(1, 2)), arr.max(axis=(1, 2)),
-                arr[:, :5, :].mean(axis=(1, 2)) - arr[:, 5:, :].mean(axis=(1, 2)),
-            ])
-        X_feat = np.hstack([X_base, np.column_stack(extra).astype(np.float32)])
+        stats, _ = extract_spms_stats(spms_arrays)
+        X_feat = np.hstack([X_base, stats])
     elif feat_type == "face_map":
         face_df = pd.read_csv(SPMS_DIR / "face_map_features.csv")
         X_extra = face_df.values.astype(np.float32)
@@ -303,8 +288,8 @@ def run_chemprop_experiment(feat_type, device):
             continue
 
         try:
-            tr_dps, tr_vi = build_dps(tr)
-            va_dps, va_vi = build_dps(va)
+            tr_dps, _ = build_dps(tr)
+            va_dps, _ = build_dps(va)
             te_dps, te_vi = build_dps(te)
 
             if len(tr_dps) < 10 or len(te_dps) < 3:

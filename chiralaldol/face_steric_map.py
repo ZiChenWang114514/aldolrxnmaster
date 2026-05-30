@@ -11,7 +11,8 @@ Two modes:
 import numpy as np
 from rdkit import Chem
 
-from .spms import VDW_RADII, ALPHA_C_SMARTS
+from .utils import VDW_RADII
+from .spms import ALPHA_C_SMARTS
 
 
 def compute_ring_normal(ring_coords):

@@ -108,3 +108,36 @@ def compress_spms_pca(spms_arrays, n_components=16):
     flat = spms_arrays.reshape(N, -1)  # (N, n_channels*200)
     pca = PCA(n_components=n_components)
     return pca.fit_transform(flat), pca
+
+
+def extract_spms_stats(spms_arrays, channel_names=("ket", "ald")):
+    """Extract statistical features from SPMS arrays for tree models.
+
+    Args:
+        spms_arrays: (N, n_channels, n_theta, n_phi) float32
+        channel_names: names for each channel
+
+    Returns:
+        (features_array, feature_names) where features_array is (N, n_channels*5)
+    """
+    feats = []
+    names = []
+    for ch, ch_name in enumerate(channel_names):
+        if ch >= spms_arrays.shape[1]:
+            break
+        arr = spms_arrays[:, ch]  # (N, n_theta, n_phi)
+        n_theta = arr.shape[1]
+        half = n_theta // 2
+        feats.extend([
+            arr.mean(axis=(1, 2)),
+            arr.std(axis=(1, 2)),
+            arr.min(axis=(1, 2)),
+            arr.max(axis=(1, 2)),
+            arr[:, :half, :].mean(axis=(1, 2)) - arr[:, half:, :].mean(axis=(1, 2)),
+        ])
+        names.extend([
+            f"spms_{ch_name}_mean", f"spms_{ch_name}_std",
+            f"spms_{ch_name}_min", f"spms_{ch_name}_max",
+            f"spms_{ch_name}_asymm",
+        ])
+    return np.column_stack(feats).astype(np.float32), names
