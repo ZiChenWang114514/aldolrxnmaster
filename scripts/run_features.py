@@ -754,11 +754,8 @@ def compute_auxiliary_features(df: pd.DataFrame) -> pd.DataFrame:
                 aux_is_oxazoline — oxazoline ring (different chelation from oxazolidinone)
       Layer 3c: n_defined_stereocenters (1d)
     """
-    # 9d one-hot (all V5 auxiliary types with data)
-    aux_types = [
-        "evans", "crimmins_thione", "crimmins_oxathione", "oppolzer",
-        "myers", "abiko", "super_quat", "menthyl_ester", "oxazoline",
-    ]
+    # one-hot for all VALID_AUXILIARIES except borneol_ester (0 rows in V5 data)
+    aux_types = [a for a in VALID_AUXILIARIES if a != "borneol_ester"]
     aux_feats = {}
     for atype in aux_types:
         aux_feats[f"aux_{atype}"] = (df["auxiliary_type"] == atype).astype(int)

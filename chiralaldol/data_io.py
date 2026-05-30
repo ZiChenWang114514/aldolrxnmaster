@@ -23,10 +23,11 @@ def load_features(feat_dir=None):
     feat_dir = Path(feat_dir) if feat_dir else FEAT_DIR
     # Try v5 first, fall back to v4
     for name in ["v5_features.csv", "v4_features.csv"]:
-        path = feat_dir / name
-        if path.exists():
-            X_df = pd.read_csv(path)
+        try:
+            X_df = pd.read_csv(feat_dir / name)
             return X_df, list(X_df.columns)
+        except FileNotFoundError:
+            continue
     raise FileNotFoundError(f"No feature file found in {feat_dir}")
 
 

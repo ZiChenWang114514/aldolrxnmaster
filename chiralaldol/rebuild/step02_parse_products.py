@@ -67,7 +67,7 @@ def _identify_main_product(
                     continue
 
         # Check all product patterns (amide, ester, oxazoline, generic)
-        has_typed_product = any(
+        has_aux_product = any(
             pat and mol.HasSubstructMatch(pat)
             for name, pat in _PRODUCT_PATS if name != "generic"
         )
@@ -78,7 +78,7 @@ def _identify_main_product(
             "smiles": smi,
             "mol": mol,
             "mw": mw,
-            "has_aux_product": has_typed_product,
+            "has_aux_product": has_aux_product,
             "has_generic_product": has_generic_product,
             "has_auxiliary": has_auxiliary,
         })

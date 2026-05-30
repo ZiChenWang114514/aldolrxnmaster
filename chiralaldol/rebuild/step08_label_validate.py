@@ -94,6 +94,17 @@ def run(df: pd.DataFrame, audit: AuditTracker) -> pd.DataFrame:
         logger.info(f"    {level}: {count}")
 
     # --- V5 label recovery: try broader SMARTS for rows without CIP ---
+    # Pre-compile once: any beta-hydroxy carbonyl with 2 atom-mapped chiral centers
+    _broad_pat = Chem.MolFromSmarts("[CX4:1]([OX2])([#6])[CX4:2]([#6])[CX3](=[OX1])")
+    _cb_q = _ca_q = None
+    if _broad_pat:
+        for _qi in range(_broad_pat.GetNumAtoms()):
+            _mn = _broad_pat.GetAtomWithIdx(_qi).GetAtomMapNum()
+            if _mn == 1:
+                _cb_q = _qi
+            elif _mn == 2:
+                _ca_q = _qi
+
     prod_col = "canonical_main_product_smiles" if "canonical_main_product_smiles" in df.columns else "main_product_smiles"
     no_label = df["label_Ca"].isna() | df["label_Cb"].isna()
     n_missing = no_label.sum()
@@ -102,30 +113,17 @@ def run(df: pd.DataFrame, audit: AuditTracker) -> pd.DataFrame:
         recovered = 0
         for idx in df[no_label].index:
             prod_smi = df.at[idx, prod_col]
-            mol = safe_mol(prod_smi) if isinstance(prod_smi, str) else None
+            mol = safe_mol(prod_smi)
             if mol is None:
                 continue
-            # Force stereochemistry assignment and try to find any chiral centers
-            Chem.AssignStereochemistry(mol, cleanIt=True, force=True)
-            # Broad pattern: any beta-hydroxy carbonyl with 2 chiral centers
-            broad_pat = Chem.MolFromSmarts("[CX4:1]([OX2])([#6])[CX4:2]([#6])[CX3](=[OX1])")
-            if broad_pat is None:
+            if _broad_pat is None or _cb_q is None or _ca_q is None:
                 continue
-            matches = mol.GetSubstructMatches(broad_pat)
+            Chem.AssignStereochemistry(mol, cleanIt=True, force=True)
+            matches = mol.GetSubstructMatches(_broad_pat)
             if not matches:
                 continue
-            # Find :1 and :2 query positions
-            cb_q = ca_q = None
-            for qi in range(broad_pat.GetNumAtoms()):
-                mn = broad_pat.GetAtomWithIdx(qi).GetAtomMapNum()
-                if mn == 1:
-                    cb_q = qi
-                elif mn == 2:
-                    ca_q = qi
-            if cb_q is None or ca_q is None:
-                continue
-            cb_idx = matches[0][cb_q]
-            ca_idx = matches[0][ca_q]
+            cb_idx = matches[0][_cb_q]
+            ca_idx = matches[0][_ca_q]
             ca_cip = mol.GetAtomWithIdx(ca_idx).GetPropsAsDict().get("_CIPCode")
             cb_cip = mol.GetAtomWithIdx(cb_idx).GetPropsAsDict().get("_CIPCode")
             if ca_cip and cb_cip:
