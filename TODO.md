@@ -1,17 +1,23 @@
 # AldolRxnMaster — Roadmap (深度审计版)
 
-## 项目状态 (2026-05-27)
+## 项目状态 (2026-05-30)
 
-- **数据**: V4d 管线从 134K Reaxys 原始数据重建，**2334 行**（6 种辅基类型）
-- **冠军**: **v4b_full_et** (128d), TSCV = **0.624 ± 0.031**, Scaffold = 0.613, Grouped = 0.738
+- **数据**: V5 管线从 134K Reaxys 原始数据重建，**2434 行**（9 种辅基类型 + 7 other）
+- **V5 辅基**: Evans (1661) + Crimmins thione (260) + Crimmins oxathione (169) + Oppolzer (141) + **Abiko (127)** + **Menthyl ester (32)** + **Oxazoline (21)** + **Myers (16)** + Other (7)
+- **VALID**: 10 种辅基, **2427 行**, **156d** 特征
+- **冠军**: **v4b_full_xgb** (156d), TSCV = **0.652 ± 0.041**, Scaffold = **0.831**, Grouped = **0.760 ± 0.016**
 - **V3 真实性能** (2026-05-27 重新评估): V3 KNN balanced acc = **0.415**（200行测试，随机split，仅预测多数类）
-- **3D syn/anti**: step08b 3D 二面角法，98.7% 成功率，仅作分析标签；2-class TSCV=0.746
+- **3D syn/anti**: step08b 3D 二面角法，97.9% 成功率，仅作分析标签
 - **管线可复现**: 13 步清洗 (含 step08b) + 行级审计，完全从原始 Reaxys 出发
 
 ---
 
 ## 已完成
 
+- [x] **V5 数据重建**: 134K Reaxys → 13 步清洗 → 2434 行 (9 种辅基 + 7 other)
+- [x] **V5 辅基扩展**: +Abiko(127)/Menthyl(32)/Oxazoline(21)/Myers 放宽(16)/Ynamide 排除(47)
+- [x] **V5 特征工程**: 156d = Steric(34) + Conditions(44) + Aux(15) + Chirality(7) + R-group(7) + ChiralEnv(21) + AldPri(8) + DeltaChiral(16) + ChiralDet(3) + n_stereo(1)
+- [x] **V5 Benchmark**: XGB TSCV=0.652, Grouped=0.760, Scaffold=0.831
 - [x] **V4 数据重建**: 134K Reaxys → 13 步清洗 → 2334 行 (6 种辅基)
 - [x] **辅基检测**: Evans + Crimmins thione/oxathione + Oppolzer + Myers + generic
 - [x] **手性催化排除**: proline/BINAP/cinchona 等手性催化剂自动排除

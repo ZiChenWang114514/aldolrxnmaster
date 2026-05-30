@@ -8,8 +8,8 @@
 - **辅基类型**: Evans (1661) + Crimmins thione (260) + Crimmins oxathione (169) + Oppolzer (141) + **Abiko (127)** + **Menthyl ester (32)** + **Oxazoline (21)** + **Myers (16)** + Other (7)
 - **V5 新增**: 5 种新辅基 SMARTS (abiko/menthyl/borneol/oxazoline/super_quat)，宽泛 Myers SMARTS，酯型/恶唑啉型产物 SMARTS，ynamide 排除，step08 标签恢复
 - **VALID_AUXILIARIES**: 10 种（+6 vs V4），**2427 行** (vs V4 的 2215 行, +9.6%)
-- **冠军** (V4): **ma_bw_xgb_optuna** (175d), TSCV = **0.657**, Grouped = **0.752** (Optuna-tuned on 153d)
-- **特征** (V4, 待 V5 更新): Steric(34d) + Conditions(50d) + Auxiliary(6d) + Chirality(7d) + R-group(8d) + ChiralEnv(21d) + AldPriority(8d) + DeltaChiral(16d) + ChiralDet(3d) = **154d**
+- **冠军** (V5): **v4b_full_xgb** (156d), TSCV = **0.652±0.041**, Grouped = **0.760±0.016**, Scaffold = **0.831**
+- **特征**: Steric(34d) + Conditions(44d) + Aux one-hot(9d) + Aux mechanistic(6d) + Chirality(7d) + R-group(7d) + ChiralEnv(21d) + AldPriority(8d) + DeltaChiral(16d) + ChiralDet(3d) + n_stereo(1d) = **156d**
 - **泄漏已排除**: DRFP 已确认标签泄漏（产物 @/@@ 编码答案），不再使用；手性特征仅从酮 SMILES 提取
 - **标签编码**: 4-class `label_joint = Ca × 2 + Cb` (R=0, S=1); 2-class `label_SA` (CIP 启发式，非 syn/anti)
 - **3D syn/anti**: `label_syn_anti_3d` 由 step08b 3D 二面角法计算（97.9% 成功率），仅作分析标签不入 ML 特征
@@ -26,7 +26,7 @@ chiralaldol/              核心包
   data_io.py              数据加载 (prepare_Xy, load_splits, load_mechaware_bw, ...)
   model_trainers.py       模型训练 (train_xgb, train_et, train_rf, train_lgbm, MajorityClassifier)
   feature_registry.py     特征子集 (select_features, FEATURE_SUBSETS)
-  rebuild/                V4 数据清洗管线 (13 步)
+  rebuild/                V5 数据清洗管线 (13 步, 含辅基扩展+标签恢复)
   rebuild_legacy/         V3 计算工具 (conformers, steric — 被 run_features.py 引用)
   gnn/                    GNN 模块 (equiformer, schnet_3d, etc.)
   steric_descriptors.py   Sterimol/Vbur 计算
@@ -34,8 +34,8 @@ chiralaldol/              核心包
   ...
 
 scripts/                  可执行脚本 (15 个)
-  run_rebuild.py          数据清洗 (134K Reaxys → 2334)
-  run_features.py         特征工程 (→ 153d)
+  run_rebuild.py          数据清洗 (134K Reaxys → 2434, 9 种辅基)
+  run_features.py         特征工程 (→ 156d)
   run_splits.py           数据划分 (TSCV + scaffold + grouped)
   run_mechaware.py        MechAware 特征 (Z/E 分离 + BW 加权)
   run_benchmark.py        模型基准 (11 models × 10 splits)
@@ -51,12 +51,12 @@ scripts/                  可执行脚本 (15 个)
   run_chem_space_audit.py 化学空间审计
 
 data/
-  clean_v4/               清洗数据 (2334 行)
-  features_v4/            153d 特征 + MechAware
-  splits_v4/              TSCV + scaffold + grouped 划分
+  clean_v5/               清洗数据 (2434 行, 9 种辅基)
+  features_v5/            156d 特征
+  splits_v5/              TSCV + scaffold + grouped 划分
 
 results/
-  predictions_v4/         预测 CSV (16 子目录)
+  predictions_v5/         预测 CSV (v4b, mechaware, steric, ablation, baseline)
   optuna/                 Optuna 最优参数
   tables/                 汇总表
   shap/                   SHAP 分析
@@ -69,23 +69,23 @@ archive/                  归档 (V3 数据/脚本/notebooks)
 
 ```
 data/
-  clean_v4/
-    substrate_aldol_clean.csv  (2334 行, 42 列)
-    evans_clean.csv            (1654 行, Evans 子集)
+  clean_v5/
+    substrate_aldol_clean.csv  (2434 行, 42 列, 9 种辅基)
+    evans_clean.csv            (1661 行, Evans 子集)
     labels.csv                 (标签: Ca, Cb, SA, joint + 3D syn/anti)
-    condition_features.csv     (50d 条件特征)
+    condition_features.csv     (44d 条件特征)
     audit/                     行级审计报告
-  features_v4/
-    v4_features.csv            (2334 × 153d 完整特征矩阵)
+  features_v5/
+    v5_features.csv            (2427 × 156d 完整特征矩阵)
     steric_features.csv        (34d 空间位阻特征)
     labels.csv
     conformers/                构象 pickle 缓存
-    v4_mechaware_bw.csv        (112d 基加权 MechAware)
-    v4_mechaware_full.csv      (328d 完整 Z/E MechAware)
-  splits_v4/
+  splits_v5/
     tscv_fold{1-4}.json        时间序列 CV
     scaffold.json              Murcko 骨架划分
     grouped_seed{42..1024}.json  role-aware 分组划分
+  clean_v4/                    V4 历史数据 (2334 行, 保留)
+  features_v4/                 V4 历史特征 (154d, 保留)
 ```
 
 ## 清洗管线 (13 步)
@@ -109,10 +109,10 @@ step12 AuditOutput
 ## 脚本
 
 ```bash
-# 数据清洗 (13 步含 step08b: 134K Reaxys → 2334 辅基 aldol)
+# 数据清洗 (13 步含 step08b: 134K Reaxys → 2434 辅基 aldol, 9 种辅基)
 conda run -n aldol-rxn python scripts/run_rebuild.py
 
-# 特征工程 (构象 + steric + chirality + rgroup + chiralenv + aldpri + delta_chiral + chiral_det → 153d)
+# 特征工程 (构象 + steric + chirality + rgroup + chiralenv + aldpri + delta_chiral + chiral_det → 156d)
 conda run -n aldol-rxn python scripts/run_features.py
 
 # 数据划分 (TSCV + scaffold + grouped)
@@ -135,9 +135,9 @@ CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop.py
 
 - 脚本命名: `scripts/run_*.py`
 - 共享模块: `chiralaldol/{config,data_io,model_trainers,feature_registry}.py`
-- Predictions: `results/predictions_v4/{category}/{model_key}_{split}.csv`
-  - Categories: v4b, mechaware, steric, ablation, baseline, optuna, stacking, chemprop
+- Predictions: `results/predictions_v5/{category}/{model_key}_{split}.csv`
+  - Categories: v4b, mechaware, steric, ablation, baseline
   - CSV 格式: `idx, y_true, y_pred, prob_0, prob_1, prob_2, prob_3`
 - 4-class label: `label_joint = Ca * 2 + Cb` (R=0, S=1)
-- 所有 split 用 V4 role-aware group_id (无泄漏)
-- 归档: `archive/` (旧数据/旧预测/废弃脚本)
+- 所有 split 用 V5 role-aware group_id (无泄漏)
+- 归档: `archive/` (旧数据/旧预测/废弃脚本), `data/clean_v4/` + `data/features_v4/` (V4 历史)

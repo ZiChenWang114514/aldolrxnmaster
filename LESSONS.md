@@ -8,7 +8,7 @@
 - **Ca CIP 翻转**: 酮 α-取代基含杂原子（如 OBn, OTBS）时 Ca 的 CIP 优先级翻转
 - 两个中心的 CIP 码都不稳定，任何基于 CIP 推断 syn/anti 的组合都不可靠
 
-**实证数据** (2334 行 substrate-controlled aldol):
+**实证数据** (2434 行 substrate-controlled aldol, V5):
 - `label_SA` vs `label_syn_anti_3d` 一致率: **45.6%**（比随机还差，因为 CIP 翻转与 syn/anti 无关）
 - 二面角分布: 清晰双峰（~±60° gauche=syn, ~±180° anti-periplanar=anti）
 - 3D syn 比例: 62.6% syn / 36.1% anti / 1.3% 失败

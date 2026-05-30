@@ -2,7 +2,54 @@
 
 基于底物控制（手性辅基）的 Aldol 反应 4-class 立体化学预测基准。
 
-## V4d 基准 (2026-05-27)
+## V5 基准 (2026-05-30)
+
+**数据**: 2434 substrate-controlled aldol reactions (V5, 从 134K Reaxys 重建, 9 种辅基)
+**辅基**: Evans (1661) + Crimmins thione (260) + Crimmins oxathione (169) + Oppolzer (141) + **Abiko (127)** + **Menthyl ester (32)** + **Oxazoline (21)** + **Myers (16)** + Other (7)
+**VALID**: 2427 行 (10 种辅基, 排除 7 行 other_auxiliary)
+**特征**: Steric(34d) + Conditions(44d) + Aux one-hot(9d) + Aux mechanistic(6d) + Chirality(7d) + R-group(7d) + ChiralEnv(21d) + AldPriority(8d) + DeltaChiral(16d) + ChiralDet(3d) + n_stereo(1d) = **156d**
+
+### V5 默认模型 (156d)
+
+| Rank | Model | Category | TSCV mean±std | Scaffold | Grouped mean±std |
+|------|-------|----------|---------------|----------|-----------------|
+| 1 | **v4b_full_et** | v4b | **0.677±0.048** | 0.717 | 0.728±0.024 |
+| 2 | **v4b_full_rf** | v4b | 0.660±0.077 | 0.773 | 0.744±0.019 |
+| 3 | **v4b_full_xgb** | v4b | 0.652±0.041 | **0.831** | **0.760±0.016** |
+| 4 | v4b_full_lgbm | v4b | 0.625±0.058 | 0.744 | 0.748±0.016 |
+| 5 | v4b_no_chiral_xgb | ablation | 0.613±0.105 | 0.672 | 0.687±0.024 |
+| 6 | steronly_xgb | steric | 0.573±0.029 | 0.708 | 0.638±0.012 |
+| 7 | v4b_condaux_xgb | v4b | 0.480±0.023 | 0.526 | 0.591±0.028 |
+| 8 | v4b_chiral_only_xgb | ablation | 0.452±0.028 | 0.452 | 0.514±0.013 |
+| 9 | cond_xgb | baseline | 0.252±0.038 | 0.261 | 0.409±0.016 |
+| 10 | majority | baseline | 0.250±0.000 | 0.250 | 0.250±0.000 |
+
+### V4d → V5 变化 (2215 → 2427 VALID 行)
+
+| 指标 | V4d (2215行, 154d) | V5 (2427行, 156d) | 变化 |
+|------|-------------------|-------------------|------|
+| TSCV champion (XGB) | 0.657 (Optuna) | 0.652 (default) | -0.005 |
+| TSCV ET | — | 0.677 | 新基线 |
+| Grouped XGB | 0.760 | 0.760 | 持平 |
+| Scaffold XGB | — | 0.831 | 新基线 |
+| 辅基类型 | 4 valid | 10 valid | +6 |
+| 数据量 | 2215 | 2427 | +9.6% |
+
+### V5 Per-Auxiliary 分析 (XGB, grouped)
+
+| 辅基 | Balanced Accuracy | 测试样本 |
+|------|:-:|:-:|
+| crimmins_oxathione | 0.893 | 33 |
+| evans | 0.746-0.783 | 307-328 |
+| crimmins_thione | 0.654-0.730 | 65-79 |
+| oppolzer | 0.607-0.720 | 27-32 |
+| **abiko** ★ | 0.568-0.646 | 24-25 |
+| **oxazoline** ★ | 0.500 | 4 |
+| **menthyl_ester** ★ | 0.250 | 7 |
+
+---
+
+## V4d 基准 (2026-05-27, 历史)
 
 **数据**: 2334 substrate-controlled aldol reactions (V4d, 从 134K Reaxys 原始数据重建)
 **辅基**: Evans (1654) + Crimmins thione (259) + Crimmins oxathione (161) + Oppolzer (141) + Other (105) + Myers (14)

@@ -1,5 +1,50 @@
 # Changelog
 
+## 2026-05-30: V5 数据管线重建 — 辅基扩展 + 标签恢复 + 特征重做
+
+### 数据管线 (134K Reaxys → 2434 行)
+- 新增 5 种辅基 SMARTS: abiko (127行), menthyl_ester (32行), oxazoline (21行), super_quat, borneol_ester
+- Myers SMARTS 放宽: `[CX3](=[OX1])N[CH]([CH3])[CH]([OH,O])c` (14→16行，覆盖 N-苄基/OH 保护变体)
+- 产物 SMARTS 扩展: 新增酯型 `ALDOL_PRODUCT_SMARTS_ESTER` + 恶唑啉型 `ALDOL_PRODUCT_SMARTS_OXAZ`
+- Ynamide 排除: 47行 N-磺酰 ynamide (keteniminium 机理, Shi 课题组) → `YNAMIDE_EXCLUDE_SMARTS`
+- Step08 标签恢复: 宽泛 SMARTS CIP 提取, 17行恢复
+- Step06 原子映射: 新增 ester/ester_silyl/ester_bn/ester_acetal 模板
+- `VALID_AUXILIARIES`: 4→10 种 (evans/crimmins×2/oppolzer/myers/abiko/super_quat/menthyl_ester/borneol_ester/oxazoline)
+- 数据量: 2334→2434 (+4.3%), VALID: 2215→2427 (+9.6%)
+
+### 特征工程 (2427 × 156d)
+- 辅基 one-hot: 4d→9d (+myers/abiko/super_quat/menthyl_ester/oxazoline)
+- 辅基机理: 3d→6d (+is_ester/is_acyclic/is_oxazoline)
+- 总特征: 154d→156d
+
+### 路径迁移
+- clean_v4/→clean_v5/, features_v4/→features_v5/, splits_v4/→splits_v5/, predictions_v4/→predictions_v5/
+- v4_features.csv→v5_features.csv, data_io.py 自动回退兼容
+
+### V5 Benchmark (156d, 2427行)
+| 模型 | TSCV | Grouped | Scaffold |
+|------|------|---------|----------|
+| XGB | 0.652±0.041 | 0.760±0.016 | 0.831 |
+| ET | 0.677±0.048 | 0.728±0.024 | 0.717 |
+| RF | 0.660±0.077 | 0.744±0.019 | 0.773 |
+| LGBM | 0.625±0.058 | 0.748±0.016 | 0.744 |
+
+### 关键发现
+- Abiko 磺酰胺酯辅基 (127行) 是最大增量，per-auxiliary bal_acc=0.57-0.65
+- "other_auxiliary" 从 105→7行 (98 行被正确识别为具体辅基类型)
+- Scaffold 显著提升 (XGB 0.831)，新辅基扩充了化学空间覆盖
+
+### 修改文件
+- `chiralaldol/rebuild/constants.py`: SMARTS 扩展 + 产物 SMARTS + ynamide 排除
+- `chiralaldol/rebuild/step02_parse_products.py`: 多产物 SMARTS 匹配
+- `chiralaldol/rebuild/step03_auxiliary_detect.py`: ynamide 排除 + 酯型检测
+- `chiralaldol/rebuild/step06_atom_mapping.py`: 酯型/恶唑啉型产物模板
+- `chiralaldol/rebuild/step08_label_validate.py`: 标签恢复逻辑
+- `chiralaldol/config.py`: VALID_AUXILIARIES + V5 路径
+- `chiralaldol/data_io.py`: v5/v4 自动回退
+- `scripts/run_features.py`: 辅基 one-hot 9d + 机理 6d
+- `scripts/run_rebuild.py`: V5 标题
+
 ## 2026-05-16: 系统性重构 + DRFP 泄漏确认
 
 ### 项目整理
