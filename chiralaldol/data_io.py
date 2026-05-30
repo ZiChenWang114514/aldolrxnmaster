@@ -102,9 +102,24 @@ def _load_mechaware(feat_dir, csv_name, feat_names):
     np.nan_to_num(X_base, copy=False)
 
     if X_mech.shape[0] != X_base.shape[0]:
-        logger.warning("Row mismatch: %s has %d rows vs features %d, skipping",
-                       csv_name, X_mech.shape[0], X_base.shape[0])
-        return None
+        # V5: mechaware CSVs have 2434 rows (full clean), features have 2427 (VALID_AUXILIARIES)
+        from .config import CLEAN_DIR, VALID_AUXILIARIES
+        try:
+            clean = pd.read_csv(CLEAN_DIR / "substrate_aldol_clean.csv",
+                                usecols=["auxiliary_type"])
+            valid_mask = clean["auxiliary_type"].isin(VALID_AUXILIARIES).values
+            if valid_mask.sum() == X_base.shape[0] and len(valid_mask) == X_mech.shape[0]:
+                X_mech = X_mech[valid_mask]
+                logger.info("Filtered %s: %d → %d rows (VALID_AUXILIARIES)",
+                            csv_name, len(valid_mask), X_mech.shape[0])
+            else:
+                logger.warning("Row mismatch: %s has %d rows vs features %d, skipping",
+                               csv_name, X_mech.shape[0], X_base.shape[0])
+                return None
+        except Exception:
+            logger.warning("Row mismatch: %s has %d rows vs features %d, skipping",
+                           csv_name, X_mech.shape[0], X_base.shape[0])
+            return None
 
     chir_idx = [i for i, c in enumerate(feat_names)
                 if c.startswith(CHIRALITY_PREFIXES)]
