@@ -52,28 +52,32 @@ logger = logging.getLogger("zt_chemprop")
 
 def load_data():
     """Load Evans-only data with ZT features."""
-    meta = pd.read_csv(CLEAN_CSV)
+    from chiralaldol.config import VALID_AUXILIARIES
+    # Filter to VALID_AUXILIARIES (2434 → 2427) to align with v5_features.csv and splits
+    meta_full = pd.read_csv(CLEAN_CSV)
+    meta = meta_full[meta_full["auxiliary_type"].isin(VALID_AUXILIARIES)].reset_index(drop=True)
+
     X_153d, y, valid_mask, feat_names = prepare_Xy()
     splits = load_splits()
 
-    # Evans mask
+    # Evans mask in 2427-space
     evans_mask = (meta["auxiliary_type"] == "evans").values
     combined_mask = valid_mask & evans_mask
 
-    # Load ZT features
+    # Load ZT features (orig_indices are in 2427-space, set by run_build_zt_graphs.py)
     with open(ZT_GRAPHS_PATH, "rb") as f:
         zt_data = pickle.load(f)
     zt_graphs = zt_data["graphs"]
     zt_orig_idx = zt_data["orig_indices"]
     X_zt_evans = extract_zt_features_batch(zt_graphs)
 
-    # Align ZT features to full dataset
+    # Align ZT features to 2427-space dataset
     X_zt = np.zeros((len(meta), ZT_FEATURE_DIM), dtype=np.float32)
     for i, orig_i in enumerate(zt_orig_idx):
         X_zt[orig_i] = X_zt_evans[i]
 
-    # Combined features
-    X_185d = np.hstack([X_153d, X_zt])  # 153 + 32 = 185d
+    # Combined features (both 2427 rows)
+    X_185d = np.hstack([X_153d, X_zt])  # 2427 × 185 ✓
 
     logger.info(f"Data: {len(meta)} total, Evans={evans_mask.sum()}, "
                 f"valid Evans={combined_mask.sum()}")

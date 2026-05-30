@@ -18,7 +18,7 @@ from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from chiralaldol.config import FEAT_DIR, N_CLASSES, PRED_DIR, RESULTS_DIR
+from chiralaldol.config import CLEAN_DIR, FEAT_DIR, N_CLASSES, PRED_DIR, RESULTS_DIR, VALID_AUXILIARIES
 from chiralaldol.data_io import (
     load_mechaware_bw,
     load_mechaware_full,
@@ -35,13 +35,13 @@ from chiralaldol.model_trainers import (
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("benchmark_v4_full")
+logger = logging.getLogger("benchmark_v5_full")
 
 
 def main():
     t0 = time.time()
     logger.info("=" * 70)
-    logger.info("V4 Full Benchmark (with MechAware)")
+    logger.info("V5 Full Benchmark (with MechAware)")
     logger.info("=" * 70)
 
     # Load all feature matrices
@@ -57,20 +57,24 @@ def main():
         np.nan_to_num(steric, copy=False)
         feat_matrices["steric_34d"] = steric
 
-    # conditions + aux (50d)
-    PROJECT = Path(__file__).resolve().parent.parent
-    cond_path = PROJECT / "data" / "clean_v4" / "condition_features.csv"
-    clean_path = PROJECT / "data" / "clean_v4" / "substrate_aldol_clean.csv"
+    # conditions + aux (54d): condition_features.csv is 2434 rows, filter to 2427 valid
+    cond_path = CLEAN_DIR / "condition_features.csv"
+    clean_path = CLEAN_DIR / "substrate_aldol_clean.csv"
     if cond_path.exists() and clean_path.exists():
-        cond = pd.read_csv(cond_path).values.astype(np.float32)
-        aux_types = ["evans", "crimmins_thione", "crimmins_oxathione", "other_auxiliary", "myers"]
+        cond_df = pd.read_csv(cond_path)
         clean = pd.read_csv(clean_path, usecols=["auxiliary_type", "n_defined_stereocenters"])
+        valid_rows = clean["auxiliary_type"].isin(VALID_AUXILIARIES)
+        cond = cond_df.loc[valid_rows].values.astype(np.float32)
+        np.nan_to_num(cond, copy=False)
+        clean = clean.loc[valid_rows].reset_index(drop=True)
+        # borneol_ester has 0 rows in V5; exclude to avoid all-zero column
+        aux_types = [a for a in VALID_AUXILIARIES if a != "borneol_ester"]
         aux = np.column_stack([
             *[(clean["auxiliary_type"] == a).astype(int).values for a in aux_types],
             clean["n_defined_stereocenters"].fillna(2).values,
         ]).astype(np.float32)
         condaux = np.hstack([cond, aux])
-        feat_matrices["condaux_50d"] = condaux
+        feat_matrices["condaux_54d"] = condaux
         feat_matrices["cond_44d"] = cond
 
     # MechAware features
@@ -92,9 +96,9 @@ def main():
     # Model registry
     MODELS = {
         # MechAware (new)
-        "ma_full_xgb":  ("steric", "ma_full", train_xgb),
-        "ma_full_lgbm": ("steric", "ma_full", train_lgbm),
-        "ma_bw_xgb":    ("steric", "ma_bw", train_xgb),
+        "ma_full_xgb":  ("mechaware", "ma_full", train_xgb),
+        "ma_full_lgbm": ("mechaware", "ma_full", train_lgbm),
+        "ma_bw_xgb":    ("mechaware", "ma_bw", train_xgb),
         # Original steric
         "full_xgb":     ("steric", "v4_84d", train_xgb),
         "full_lgbm":    ("steric", "v4_84d", train_lgbm),
@@ -102,7 +106,7 @@ def main():
         "full_et":      ("steric", "v4_84d", train_et),
         "steronly_xgb": ("steric", "steric_34d", train_xgb),
         # Baseline
-        "condaux_xgb":  ("baseline", "condaux_50d", train_xgb),
+        "condaux_xgb":  ("baseline", "condaux_54d", train_xgb),
         "cond_xgb":     ("baseline", "cond_44d", train_xgb),
         "majority":     ("baseline", "v4_84d", lambda Xtr, ytr, Xv, yv: MajorityClassifier().fit(Xtr, ytr)),
     }
@@ -157,7 +161,7 @@ def main():
 
     # Save results
     results_df = pd.DataFrame(all_results)
-    table_path = RESULTS_DIR / "tables" / "benchmark_v4_full.csv"
+    table_path = RESULTS_DIR / "tables" / "benchmark_v5_full.csv"
     results_df.to_csv(table_path, index=False)
 
     # Print summary

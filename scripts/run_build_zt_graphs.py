@@ -15,7 +15,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from chiralaldol.config import CLEAN_DIR, FEAT_DIR
+from chiralaldol.config import CLEAN_DIR, FEAT_DIR, VALID_AUXILIARIES
 from chiralaldol.zt_3d_coords import add_3d_coords_batch
 from chiralaldol.zt_graph_builder import build_zt_graphs_batch
 
@@ -29,10 +29,12 @@ def main():
     t0 = time.time()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    df = pd.read_csv(CLEAN_DIR / "substrate_aldol_clean.csv")
-    logger.info(f"Loaded {len(df)} reactions")
+    df_full = pd.read_csv(CLEAN_DIR / "substrate_aldol_clean.csv")
+    # Filter to VALID_AUXILIARIES (2434 → 2427) so orig_indices align with v5_features.csv
+    df = df_full[df_full["auxiliary_type"].isin(VALID_AUXILIARIES)].reset_index(drop=True)
+    logger.info(f"Loaded {len(df_full)} total reactions, {len(df)} valid (VALID_AUXILIARIES)")
 
-    # Build for Evans subset
+    # Build for Evans subset (indices in 2427-space, matching splits and features)
     evans_mask = df["auxiliary_type"] == "evans"
     evans_df = df[evans_mask].reset_index(drop=True)
     evans_orig_idx = df.index[evans_mask].tolist()

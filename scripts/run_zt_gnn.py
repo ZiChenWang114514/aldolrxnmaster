@@ -51,9 +51,7 @@ def load_evans_data():
     from chiralaldol.config import VALID_AUXILIARIES
     meta_full = pd.read_csv(CLEAN_DIR / "substrate_aldol_clean.csv")
     meta = meta_full[meta_full["auxiliary_type"].isin(VALID_AUXILIARIES)].reset_index(drop=True)
-    _, y_all, valid_mask, feat_names = prepare_Xy()
-    X_153d, _ = pd.read_csv(FEAT_DIR / "v4_features.csv").values.astype(np.float32), None
-    np.nan_to_num(X_153d, copy=False)
+    X_153d, y_all, valid_mask, feat_names = prepare_Xy()
     splits = load_splits()
 
     evans_mask = (meta["auxiliary_type"] == "evans").values
