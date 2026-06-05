@@ -15,7 +15,6 @@ Usage:
 """
 
 import argparse
-import json
 import logging
 import pickle
 import time
@@ -29,9 +28,8 @@ from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_class_weight
 from torch_geometric.loader import DataLoader
 
-from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPLITS_DIR
+from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR
 from chiralaldol.data_io import prepare_Xy, load_splits, save_predictions
-from chiralaldol.gnn.zt_dataset import build_pyg_dataset
 from chiralaldol.gnn.zt_models import ZT_MODELS
 
 ZT_GRAPHS_PATH = FEAT_DIR / "zt_graphs" / "evans_zt_graphs.pkl"

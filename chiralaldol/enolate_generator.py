@@ -16,22 +16,14 @@ Chemistry:
   weighting is applied at the descriptor aggregation stage.
 """
 
-import ast
 import logging
-from pathlib import Path
 
-import pandas as pd
 from rdkit import Chem, RDLogger
 
-from .utils import clean_mol
+from .utils import ACYL_ALPHA_SMARTS, clean_mol
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
 logger = logging.getLogger(__name__)
-
-# SMARTS: alpha-C (sp3, with H's) bonded to acyl C(=O) bonded to amide N
-# This specifically matches the N-acyl chain, NOT the ring C(=O)-O
-# X3 covers terminal CH2 (1 heavy neighbor), X4 covers substituted CH/CH2
-ACYL_ALPHA_SMARTS = Chem.MolFromSmarts("[CH2,CH;X3,X4:1]-[CX3:2](=[OX1:3])-[NX3:4]")
 
 # Base classification for Z/E selectivity
 # Z-dominant: essentially all Evans standard conditions
@@ -137,68 +129,3 @@ def get_dominant_base(reagents_str: str, base_cols: dict) -> str:
     return "unknown"
 
 
-def generate_all_enolates(project_dir: Path) -> pd.DataFrame:
-    """Generate enolates for all 1822 Evans reactions.
-
-    Returns DataFrame with columns:
-        idx, ketone_smiles, enolate_smiles, status, ze_selectivity
-    """
-    processed = project_dir / "data" / "processed"
-    df = pd.read_csv(processed / "evans_clean.csv")
-    cond = pd.read_csv(processed / "features" / "reaction_conditions.csv")
-
-    # Identify base columns
-    base_cols = [c for c in cond.columns if c.startswith("base_")]
-
-    n = len(df)
-    results = []
-    n_success = 0
-    n_fallback = 0
-
-    for i in range(n):
-        ketone_smi = str(df["Ketone"].iloc[i])
-        enolate_smi, status = ketone_to_enolate(ketone_smi)
-
-        # Determine Z/E selectivity from base encoding
-        base_dict = {c: cond[c].iloc[i] for c in base_cols}
-        dominant_base = get_dominant_base(None, base_dict)
-        ze_sel = classify_ze_selectivity(dominant_base)
-
-        if enolate_smi is None:
-            # Fallback: use original ketone (cleaned)
-            mol = clean_mol(ketone_smi)
-            fallback_smi = Chem.MolToSmiles(mol) if mol else ""
-            results.append({
-                "idx": i,
-                "ketone_smiles": ketone_smi,
-                "enolate_smiles": fallback_smi,
-                "status": f"fallback({status})",
-                "ze_selectivity": ze_sel,
-                "is_enolate": False,
-            })
-            n_fallback += 1
-        else:
-            results.append({
-                "idx": i,
-                "ketone_smiles": ketone_smi,
-                "enolate_smiles": enolate_smi,
-                "status": status,
-                "ze_selectivity": ze_sel,
-                "is_enolate": True,
-            })
-            n_success += 1
-
-    logger.info(f"Enolate generation: {n_success}/{n} success, {n_fallback} fallback")
-
-    result_df = pd.DataFrame(results)
-    return result_df
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
-    project = Path("/data2/zcwang/aldolrxnmaster")
-    out = generate_all_enolates(project)
-    out_path = project / "data" / "processed" / "chiralaldol" / "enolates.csv"
-    out.to_csv(out_path, index=False)
-    logger.info(f"Saved {len(out)} enolates to {out_path}")
-    logger.info(f"Status counts:\n{out['status'].value_counts()}")

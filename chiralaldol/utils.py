@@ -2,7 +2,11 @@
 
 import numpy as np
 from rdkit import Chem
-from rdkit.Chem import AllChem
+
+
+# SMARTS: alpha-C (sp3, with H's) bonded to acyl C(=O) bonded to amide N
+# Matches N-acyl chain in Evans / Crimmins / Oppolzer auxiliaries
+ACYL_ALPHA_SMARTS = Chem.MolFromSmarts("[CH2,CH;X3,X4:1]-[CX3:2](=[OX1:3])-[NX3:4]")
 
 
 def clean_mol(smiles: str) -> Chem.Mol | None:

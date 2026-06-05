@@ -11,7 +11,6 @@ rotation/translation equivariant — ideal for stereo prediction.
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch_geometric.nn import global_mean_pool
 from torch_geometric.data import Data
 

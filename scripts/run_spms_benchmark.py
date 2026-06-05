@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
 
-from chiralaldol.config import FEAT_DIR, PRED_DIR, RESULTS_DIR, SPMS_DIR
+from chiralaldol.config import PRED_DIR, RESULTS_DIR, SPMS_DIR
 from chiralaldol.data_io import load_features, load_labels, load_splits, save_predictions
 from chiralaldol.model_trainers import train_xgb, train_et, train_rf
 from chiralaldol.spms_compressor import extract_spms_stats

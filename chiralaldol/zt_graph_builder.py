@@ -30,11 +30,10 @@ Reference:
 import logging
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Optional
-
 import numpy as np
 from rdkit import Chem, RDLogger
-from rdkit.Chem import Descriptors, rdMolDescriptors
+
+from .utils import ACYL_ALPHA_SMARTS
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
 logger = logging.getLogger(__name__)
@@ -79,7 +78,6 @@ METAL_PROPERTIES = {
 
 # Evans auxiliary SMARTS for matching C4 and the acyl chain
 EVANS_KETONE_SMARTS = Chem.MolFromSmarts("[C:1]1([*])COC(=O)N1")
-ACYL_ALPHA_SMARTS = Chem.MolFromSmarts("[CH2,CH;X3,X4:1]-[CX3:2](=[OX1:3])-[NX3:4]")
 # Primary: aldehyde R-CHO; fallback: any carbonyl C(=O) for ketone/ester electrophiles
 ALDEHYDE_SMARTS = Chem.MolFromSmarts("[CX3H1:1](=[OX1:2])")
 CARBONYL_SMARTS = Chem.MolFromSmarts("[CX3:1](=[OX1:2])")

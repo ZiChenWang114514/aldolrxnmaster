@@ -19,7 +19,7 @@ import logging
 
 import numpy as np
 
-from .zt_graph_builder import ZTGraph, ZTNodeType
+from .zt_graph_builder import ZTNodeType
 
 logger = logging.getLogger(__name__)
 

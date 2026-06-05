@@ -1,4 +1,4 @@
-"""Chemical constants, SMARTS patterns, and lookup tables for V4 rebuild.
+"""Chemical constants, SMARTS patterns, and lookup tables for V5 rebuild.
 
 Extends V3 constants with multi-auxiliary SMARTS, chiral catalyst exclusion,
 and Reaxys column mappings.
@@ -17,8 +17,8 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = PROJECT_DIR / "data"
 RAW_CSV = DATA_DIR / "data.csv"
-CLEAN_V4_DIR = DATA_DIR / "clean_v5"
-AUDIT_DIR = CLEAN_V4_DIR / "audit"
+CLEAN_DIR = DATA_DIR / "clean_v5"
+AUDIT_DIR = CLEAN_DIR / "audit"
 INTERIM_DIR = DATA_DIR / "interim_v5"
 
 # ==================== Reaxys column names ====================

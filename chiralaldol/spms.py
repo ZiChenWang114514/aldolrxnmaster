@@ -14,10 +14,9 @@ Each SPMS matrix is a (n_theta × n_phi) grid where:
 import numpy as np
 from rdkit import Chem
 
-from .utils import VDW_RADII
+from .utils import ACYL_ALPHA_SMARTS as ALPHA_C_SMARTS, VDW_RADII
 
-# SMARTS for target atoms
-ALPHA_C_SMARTS = Chem.MolFromSmarts("[CH2,CH;X3,X4:1]-[CX3:2](=[OX1:3])-[NX3:4]")
+# Aldehyde-specific SMARTS (only used here)
 ALDEHYDE_C_SMARTS = Chem.MolFromSmarts("[CX3H1:1](=[OX1])")
 
 

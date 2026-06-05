@@ -2,7 +2,6 @@
 
 import logging
 import re
-from typing import Optional
 
 import pandas as pd
 from rdkit import Chem
@@ -13,7 +12,7 @@ from .utils import safe_mol
 logger = logging.getLogger("rebuild_v4.step07")
 
 
-def _extract_cip_labels(product_smi: str, ca_idx, cb_idx) -> tuple[Optional[int], Optional[int]]:
+def _extract_cip_labels(product_smi: str, ca_idx, cb_idx) -> tuple[int | None, int | None]:
     """Extract CIP R/S at Ca and Cb atom indices.
 
     Returns (label_Ca, label_Cb) where R=0, S=1. None if unavailable.

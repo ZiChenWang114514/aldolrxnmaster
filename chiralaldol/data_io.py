@@ -128,9 +128,9 @@ def _load_mechaware(feat_dir, csv_name, feat_names):
 
 def load_mechaware_bw(feat_dir=None, feat_names=None):
     """Load MechAware BW features + chirality columns. Returns array or None."""
-    return _load_mechaware(feat_dir, "v4_mechaware_bw.csv", feat_names)
+    return _load_mechaware(feat_dir, "mechaware_bw.csv", feat_names)
 
 
 def load_mechaware_full(feat_dir=None, feat_names=None):
     """Load MechAware Full features + chirality columns. Returns array or None."""
-    return _load_mechaware(feat_dir, "v4_mechaware_full.csv", feat_names)
+    return _load_mechaware(feat_dir, "mechaware_full.csv", feat_names)

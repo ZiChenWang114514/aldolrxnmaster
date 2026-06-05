@@ -11,7 +11,6 @@ between the two new stereocenters. |θ| < 90° → syn, |θ| ≥ 90° → anti.
 """
 
 import logging
-from typing import Optional
 
 import pandas as pd
 from rdkit import Chem
@@ -22,7 +21,7 @@ from .audit import AuditTracker
 logger = logging.getLogger("rebuild_v4.step08b")
 
 
-def _find_oh_neighbor(mol, cb_idx: int) -> Optional[int]:
+def _find_oh_neighbor(mol, cb_idx: int) -> int | None:
     """Find the oxygen neighbor of Cb (free OH or protected O)."""
     cb_atom = mol.GetAtomWithIdx(cb_idx)
     for nb in cb_atom.GetNeighbors():
@@ -31,7 +30,7 @@ def _find_oh_neighbor(mol, cb_idx: int) -> Optional[int]:
     return None
 
 
-def _find_co_neighbor(mol, ca_idx: int, cb_idx: int) -> Optional[int]:
+def _find_co_neighbor(mol, ca_idx: int, cb_idx: int) -> int | None:
     """Find the C=O carbon adjacent to Ca (excluding Cb).
 
     Matches any carbon neighbor of Ca that has a double bond to oxygen,

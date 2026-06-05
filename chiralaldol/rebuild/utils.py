@@ -2,7 +2,6 @@
 
 import re
 import logging
-from typing import Optional
 
 import pandas as pd
 from rdkit import Chem
@@ -12,7 +11,7 @@ logger = logging.getLogger("rebuild_v4")
 
 
 
-def safe_mol(smiles: str) -> Optional[Chem.Mol]:
+def safe_mol(smiles: str) -> Chem.Mol | None:
     """Parse SMILES, return None on failure (suppresses RDKit warnings)."""
     if not isinstance(smiles, str) or not smiles.strip():
         return None
@@ -23,7 +22,7 @@ def safe_mol(smiles: str) -> Optional[Chem.Mol]:
         return None
 
 
-def canonical_smiles(smiles: str, isomeric: bool = True) -> Optional[str]:
+def canonical_smiles(smiles: str, isomeric: bool = True) -> str | None:
     """Canonicalize SMILES, preserving stereochemistry. Returns None on failure."""
     mol = safe_mol(smiles)
     if mol is None:
@@ -77,7 +76,7 @@ def split_reaction_smiles(rxn_smi: str) -> tuple[list[str], list[str]]:
     return reactants, products
 
 
-def parse_numeric_field(val) -> Optional[float]:
+def parse_numeric_field(val) -> float | None:
     """Parse a Reaxys numeric field that may contain ranges, semicolons, etc."""
     if pd.isna(val):
         return None

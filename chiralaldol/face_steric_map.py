@@ -9,7 +9,6 @@ Two modes:
 """
 
 import numpy as np
-from rdkit import Chem
 
 from .utils import VDW_RADII
 from .spms import ALPHA_C_SMARTS

@@ -7,7 +7,7 @@ encodes the chemical transformation.
 
 import torch
 import torch.nn as nn
-from torch_geometric.nn import NNConv, Set2Set, global_mean_pool
+from torch_geometric.nn import NNConv, global_mean_pool
 from torch_geometric.data import Data
 
 from .condition_fusion import FiLMLayer, ReadoutConcat, NodeInject

@@ -12,9 +12,7 @@ import logging
 
 import numpy as np
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, Descriptors
-
-from .utils import clean_mol, get_plane_normal, get_vdw_radius
+from .utils import get_plane_normal, get_vdw_radius
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
 logger = logging.getLogger(__name__)

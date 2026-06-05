@@ -33,7 +33,7 @@ RDLogger.logger().setLevel(RDLogger.ERROR)
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPLITS_DIR
+from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR
 from chiralaldol.data_io import prepare_Xy, load_splits, save_predictions
 from chiralaldol.zt_features import extract_zt_features_batch, ZT_FEATURE_DIM
 

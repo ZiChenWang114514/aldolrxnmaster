@@ -1,13 +1,11 @@
 """Step 06: Atom mapping via RXNMapper + SMARTS template dual verification."""
 
 import logging
-from typing import Optional
 
 import pandas as pd
 from rdkit import Chem
 
 from .audit import AuditTracker
-from .constants import ALDOL_PRODUCT_SMARTS_AUX, AUXILIARY_SMARTS
 from .utils import safe_mol
 
 logger = logging.getLogger("rebuild_v4.step06")
@@ -50,7 +48,7 @@ for _name, _smarts in _PRODUCT_TEMPLATES_RAW.items():
     _PRODUCT_TEMPLATES[_name] = (_pat, _map_positions)
 
 
-def _template_locate_ca_cb(product_smi: str) -> Optional[tuple[int, int]]:
+def _template_locate_ca_cb(product_smi: str) -> tuple[int, int] | None:
     """Locate Ca and Cb atom indices in product using SMARTS templates.
 
     Returns (ca_idx, cb_idx) or None.
@@ -75,7 +73,7 @@ def _template_locate_ca_cb(product_smi: str) -> Optional[tuple[int, int]]:
     return None
 
 
-def _rxnmapper_map(rxn_smiles_list: list[str]) -> list[tuple[Optional[str], float]]:
+def _rxnmapper_map(rxn_smiles_list: list[str]) -> list[tuple[str | None, float]]:
     """Batch atom mapping via RXNMapper. Returns list of (mapped_rxn, confidence)."""
     try:
         from rxnmapper import RXNMapper
@@ -90,7 +88,7 @@ def _rxnmapper_map(rxn_smiles_list: list[str]) -> list[tuple[Optional[str], floa
         return [(None, 0.0)] * len(rxn_smiles_list)
 
 
-def _rxnmapper_locate_ca_cb(mapped_rxn: str, product_smi: str) -> Optional[tuple[int, int]]:
+def _rxnmapper_locate_ca_cb(mapped_rxn: str, product_smi: str) -> tuple[int, int] | None:
     """From a mapped reaction, locate Ca/Cb in the product.
 
     Strategy:

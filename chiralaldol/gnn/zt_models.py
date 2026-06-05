@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import (
     GATv2Conv, GINEConv, NNConv,
-    global_mean_pool, global_add_pool, Set2Set,
+    global_mean_pool,
 )
 
 

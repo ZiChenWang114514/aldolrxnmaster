@@ -9,12 +9,8 @@ Pipeline:
 """
 
 import logging
-import pickle
-import time
-from pathlib import Path
 
 import numpy as np
-import pandas as pd
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, rdMolAlign
 from scipy.cluster.hierarchy import fcluster, linkage
@@ -211,61 +207,3 @@ def _extract_coords(mol: Chem.Mol, conf_id: int) -> np.ndarray | None:
         return None
 
 
-def generate_all_ensembles(
-    project_dir: Path,
-    n_confs: int = DEFAULT_N_CONFS,
-    rmsd_cutoff: float = DEFAULT_RMSD_CUTOFF,
-    max_k: int = DEFAULT_MAX_K,
-) -> dict:
-    """Generate conformer ensembles for all molecules in enolates.csv.
-
-    Returns dict mapping idx → ensemble result.
-    """
-    enolates = pd.read_csv(project_dir / "data" / "processed" / "chiralaldol" / "enolates.csv")
-    n = len(enolates)
-
-    results = {}
-    n_ok = 0
-    n_fail = 0
-    t0 = time.time()
-
-    for i in range(n):
-        smi = enolates["enolate_smiles"].iloc[i]
-        ens = generate_conformer_ensemble(str(smi), n_confs=n_confs,
-                                          rmsd_cutoff=rmsd_cutoff, max_k=max_k)
-        if ens is not None:
-            results[i] = ens
-            n_ok += 1
-        else:
-            results[i] = None
-            n_fail += 1
-
-        if (i + 1) % 200 == 0:
-            elapsed = time.time() - t0
-            rate = (i + 1) / elapsed
-            eta = (n - i - 1) / rate
-            logger.info(f"  {i+1}/{n} done ({n_ok} ok, {n_fail} fail) "
-                        f"[{elapsed:.0f}s elapsed, ~{eta:.0f}s remaining]")
-
-    logger.info(f"Conformer ensemble: {n_ok}/{n} success, {n_fail} fail "
-                f"in {time.time()-t0:.1f}s")
-
-    # Summary statistics
-    n_clusters_list = [r["n_clusters"] for r in results.values() if r is not None]
-    if n_clusters_list:
-        logger.info(f"  Clusters: mean={np.mean(n_clusters_list):.1f}, "
-                    f"median={np.median(n_clusters_list):.0f}, "
-                    f"min={min(n_clusters_list)}, max={max(n_clusters_list)}")
-
-    return results
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
-    project = Path("/data2/zcwang/aldolrxnmaster")
-    results = generate_all_ensembles(project)
-
-    out_path = project / "data" / "processed" / "chiralaldol" / "conformer_ensembles.pkl"
-    with open(out_path, "wb") as f:
-        pickle.dump(results, f)
-    logger.info(f"Saved to {out_path}")

@@ -1,7 +1,6 @@
 """Step 02: Parse reaction SMILES, identify main aldol product, extract ketone/aldehyde."""
 
 import logging
-from typing import Optional
 
 import pandas as pd
 from rdkit import Chem
@@ -42,8 +41,8 @@ _PRODUCT_PATS = [
 def _identify_main_product(
     product_smiles_list: list[str],
     reactant_smiles_list: list[str],
-    yield_val: Optional[float],
-) -> Optional[str]:
+    yield_val: float | None,
+) -> str | None:
     """Multi-layer strategy to identify the main aldol product.
 
     Priority:
@@ -121,7 +120,7 @@ def _identify_main_product(
 
 def _classify_reactants(
     reactant_smiles_list: list[str],
-) -> tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     """Classify reactants into ketone/acyl-auxiliary and aldehyde.
 
     Returns (ketone_smiles, aldehyde_smiles).

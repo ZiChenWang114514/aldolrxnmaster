@@ -1,8 +1,15 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "aldolrxnmaster"
 version = "0.1.0"
 description = "Stereochemistry prediction for asymmetric aldol reactions — comprehensive SOTA benchmark"
 requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+include = ["chiralaldol*"]
 
 [tool.ruff]
 line-length = 100

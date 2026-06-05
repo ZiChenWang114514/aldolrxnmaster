@@ -1,12 +1,11 @@
 """Step 12: Final audit report and output."""
 
 import logging
-from pathlib import Path
 
 import pandas as pd
 
 from .audit import AuditTracker
-from .constants import CLEAN_V4_DIR, AUDIT_DIR
+from .constants import CLEAN_DIR, AUDIT_DIR
 
 logger = logging.getLogger("rebuild_v4.step12")
 
@@ -48,21 +47,21 @@ def run(df: pd.DataFrame, feat_df: pd.DataFrame, audit: AuditTracker) -> None:
     logger.info("Step 12: Writing outputs and audit reports...")
 
     # Ensure output directories exist
-    CLEAN_V4_DIR.mkdir(parents=True, exist_ok=True)
+    CLEAN_DIR.mkdir(parents=True, exist_ok=True)
     AUDIT_DIR.mkdir(parents=True, exist_ok=True)
 
     # --- Clean CSV: all substrate-controlled aldol ---
     out_cols = [c for c in CLEAN_COLUMNS if c in df.columns]
     clean_df = df[out_cols].copy()
 
-    out_path = CLEAN_V4_DIR / "substrate_aldol_clean.csv"
+    out_path = CLEAN_DIR / "substrate_aldol_clean.csv"
     clean_df.to_csv(out_path, index=False)
     logger.info(f"  Wrote {len(clean_df)} rows to {out_path}")
 
     # --- Evans subset (backward compatibility) ---
     evans_mask = df["auxiliary_type"] == "evans"
     evans_df = clean_df[evans_mask]
-    evans_path = CLEAN_V4_DIR / "evans_clean.csv"
+    evans_path = CLEAN_DIR / "evans_clean.csv"
     evans_df.to_csv(evans_path, index=False)
     logger.info(f"  Wrote {len(evans_df)} Evans rows to {evans_path}")
 
@@ -71,10 +70,10 @@ def run(df: pd.DataFrame, feat_df: pd.DataFrame, audit: AuditTracker) -> None:
                   "label_confidence", "label_source",
                   "label_syn_anti_3d", "dihedral_oh_cb_ca_co", "synanti_confidence"]
     labels = df[[c for c in label_cols if c in df.columns]].copy()
-    labels.to_csv(CLEAN_V4_DIR / "labels.csv", index=False)
+    labels.to_csv(CLEAN_DIR / "labels.csv", index=False)
 
     # --- Condition features ---
-    feat_df.to_csv(CLEAN_V4_DIR / "condition_features.csv", index=False)
+    feat_df.to_csv(CLEAN_DIR / "condition_features.csv", index=False)
     logger.info(f"  Wrote {feat_df.shape[1]}-d condition features")
 
     # --- Audit reports ---

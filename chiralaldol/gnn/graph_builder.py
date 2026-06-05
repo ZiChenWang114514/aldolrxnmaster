@@ -10,13 +10,10 @@ All return torch_geometric.data.Data objects.
 """
 
 import logging
-import re
-from typing import Optional
 
 import numpy as np
 import torch
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, Descriptors
 from torch_geometric.data import Data
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
@@ -77,7 +74,7 @@ def bond_features(bond: Chem.Bond) -> list[float]:
     return features
 
 
-def mol_to_graph(mol: Chem.Mol, coords_3d: Optional[np.ndarray] = None) -> Data:
+def mol_to_graph(mol: Chem.Mol, coords_3d: np.ndarray | None = None) -> Data:
     """Convert RDKit Mol to PyG Data object.
 
     Args:
@@ -128,7 +125,7 @@ def mol_to_graph(mol: Chem.Mol, coords_3d: Optional[np.ndarray] = None) -> Data:
 # Graph Type 1: Reaction Difference Graph
 # ========================================================================
 
-def build_diff_graph(mapped_rxn: str, label: int, condition_vec: np.ndarray) -> Optional[Data]:
+def build_diff_graph(mapped_rxn: str, label: int, condition_vec: np.ndarray) -> Data | None:
     """Build a reaction difference graph from atom-mapped SMILES.
 
     Nodes = product atoms with features.
@@ -227,7 +224,7 @@ def build_multiview_graph(
     product_smi: str,
     label: int,
     condition_vec: np.ndarray,
-) -> Optional[Data]:
+) -> Data | None:
     """Build separate reactant and product graphs packaged together.
 
     Returns a Data object with:
@@ -272,7 +269,7 @@ def build_3d_graph(
     label: int,
     condition_vec: np.ndarray,
     cutoff: float = 5.0,
-) -> Optional[Data]:
+) -> Data | None:
     """Build 3D spatial graph with distance-based edges.
 
     Edges connect atoms within `cutoff` Angstroms.
@@ -339,7 +336,7 @@ def build_ts_graph(
     mapped_rxn: str,
     label: int,
     condition_vec: np.ndarray,
-) -> Optional[Data]:
+) -> Data | None:
     """Build a transition-state approximation graph.
 
     Union of reactant and product bonds, with edge annotations:

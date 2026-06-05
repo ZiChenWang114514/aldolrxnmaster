@@ -18,19 +18,16 @@ Z/E weights by base/activator:
 
 import copy
 import logging
-from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, rdMolAlign, rdMolTransforms
 
-from .utils import clean_mol
+from .utils import ACYL_ALPHA_SMARTS, clean_mol
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
 logger = logging.getLogger(__name__)
-
-ACYL_ALPHA_SMARTS = Chem.MolFromSmarts("[CH2,CH;X3,X4:1]-[CX3:2](=[OX1:3])-[NX3:4]")
 
 N_CONFS = 100
 RMSD_CUTOFF = 1.0

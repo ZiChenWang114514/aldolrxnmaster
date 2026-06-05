@@ -8,11 +8,7 @@ Supports all 4 GNN architectures × 3 fusion modes with:
   - Time-series CV evaluation
 """
 
-import json
 import logging
-import time
-from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import torch
@@ -30,7 +26,7 @@ logger = logging.getLogger(__name__)
 class LabelSmoothingCrossEntropy(nn.Module):
     """Cross entropy with label smoothing for classification."""
 
-    def __init__(self, smoothing: float = 0.1, weight: Optional[torch.Tensor] = None):
+    def __init__(self, smoothing: float = 0.1, weight: torch.Tensor | None = None):
         super().__init__()
         self.smoothing = smoothing
         self.weight = weight

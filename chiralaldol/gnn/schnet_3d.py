@@ -6,7 +6,6 @@ distance-based convolutions. Suitable for the 3D conformer inputs.
 
 import torch
 import torch.nn as nn
-from torch_geometric.nn import SchNet as SchNetBase
 from torch_geometric.nn import global_mean_pool
 from torch_geometric.data import Data
 

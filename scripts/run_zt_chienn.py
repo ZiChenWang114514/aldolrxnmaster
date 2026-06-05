@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore")
 # Add ChiENN to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "external" / "ChiENN"))
 
-from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPLITS_DIR
+from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR
 from chiralaldol.data_io import prepare_Xy, load_splits, save_predictions
 
 # ChiENN imports

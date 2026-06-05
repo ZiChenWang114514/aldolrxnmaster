@@ -3,7 +3,6 @@
 import logging
 
 import pandas as pd
-from rdkit import Chem
 
 from .audit import AuditTracker
 from .utils import safe_mol, canonical_smiles, count_defined_stereocenters

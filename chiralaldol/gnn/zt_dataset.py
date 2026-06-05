@@ -1,11 +1,8 @@
 """PyG Dataset for Zimmerman-Traxler transition state graphs."""
 
-import pickle
-from pathlib import Path
 
-import numpy as np
 import torch
-from torch_geometric.data import Data, InMemoryDataset
+from torch_geometric.data import Data
 
 
 def zt_graph_to_pyg(zt_graph, label=None, extra_features=None):
