@@ -641,3 +641,391 @@ def build_zt_graphs_batch(df, ketone_col="ketone_smiles", aldehyde_col="aldehyde
 
     logger.info(f"Built {n_success} ZT graphs ({n_fail} failures out of {len(df)})")
     return graphs
+
+
+# ═══════════════════════════ Multi-TS Extensions ═══════════════════════════
+
+
+class TSType(IntEnum):
+    """Transition state types for 4-TS enumeration.
+
+    Z/E refers to the enolate geometry; syn/anti refers to the
+    aldehyde R-group orientation (equatorial = syn, axial = anti
+    in the Evans model).
+    """
+    Z_CHAIR_SYN  = 0   # Z-enolate, R_ald equatorial → Evans syn (major)
+    Z_CHAIR_ANTI = 1   # Z-enolate, R_ald axial     → Evans anti
+    E_CHAIR_SYN  = 2   # E-enolate, R_ald equatorial
+    E_CHAIR_ANTI = 3   # E-enolate, R_ald axial
+
+
+# Axial/equatorial assignments per TS type:
+#   R1 (on C_alpha): Z → axial, E → equatorial
+#   R_ald (on C_aldehyde): syn → equatorial, anti → axial
+TS_AX_EQ = {
+    TSType.Z_CHAIR_SYN:  {"r1_axial": True,  "r_ald_axial": False},
+    TSType.Z_CHAIR_ANTI: {"r1_axial": True,  "r_ald_axial": True},
+    TSType.E_CHAIR_SYN:  {"r1_axial": False, "r_ald_axial": False},
+    TSType.E_CHAIR_ANTI: {"r1_axial": False, "r_ald_axial": True},
+}
+
+NODE_FEAT_DIM_MULTI = 28   # 7 + 4 + 6 + 4 + 4 + 3
+EDGE_FEAT_DIM_MULTI = 8    # 5 + 1 + 1 + 1
+
+
+@dataclass
+class MultiTSGraphSet:
+    """A set of 4 ZT transition state graphs for one reaction."""
+    graphs: list            # list of ZTGraph, length 4 (one per TSType)
+    ze_weights: tuple       # (w_Z, w_E)
+    reaction_idx: int = -1
+
+
+def _make_fail_graph(status="parse_fail"):
+    return ZTGraph(
+        node_types=np.array([], dtype=np.int64),
+        node_features=np.zeros((0, 0)),
+        edge_index=np.zeros((2, 0), dtype=np.int64),
+        edge_types=np.array([], dtype=np.int64),
+        edge_features=np.zeros((0, 0)),
+        status=status,
+    )
+
+
+def _parse_evans_reaction(ketone_smi, aldehyde_smi, activator=""):
+    """Parse ketone + aldehyde and return matched atom indices.
+
+    Returns None on failure, otherwise a dict of parsed info.
+    """
+    ket_mol = Chem.MolFromSmiles(ketone_smi)
+    ald_mol = Chem.MolFromSmiles(aldehyde_smi)
+    if ket_mol is None or ald_mol is None:
+        return None
+
+    aux_matches = ket_mol.GetSubstructMatches(EVANS_KETONE_SMARTS)
+    if not aux_matches:
+        return None
+
+    acyl_matches = ket_mol.GetSubstructMatches(ACYL_ALPHA_SMARTS)
+    if not acyl_matches:
+        broad_acyl = Chem.MolFromSmarts("[#6:1]-[CX3:2](=[OX1:3])-[NX3:4]")
+        acyl_matches = ket_mol.GetSubstructMatches(broad_acyl)
+        if not acyl_matches:
+            return None
+    alpha_idx, carbonyl_c_idx, carbonyl_o_idx, n_idx = acyl_matches[0]
+
+    ald_matches = ald_mol.GetSubstructMatches(ALDEHYDE_SMARTS)
+    if not ald_matches:
+        ald_matches = ald_mol.GetSubstructMatches(CARBONYL_SMARTS)
+    if not ald_matches:
+        return None
+    ald_c_idx, ald_o_idx = ald_matches[0]
+
+    # --- Resolve metal ---
+    metal_key = "none"
+    if activator:
+        for prefix, m in [("B", "B"), ("BOTf", "B"), ("BCl", "B"), ("BBN", "B"),
+                           ("Ti", "Ti"), ("Sn", "Sn"), ("Mg", "Mg")]:
+            if prefix in activator:
+                metal_key = m
+                break
+
+    # --- Substituent analysis ---
+    alpha_atom = ket_mol.GetAtomWithIdx(alpha_idx)
+    r1_atoms = []
+    ring_ketone_atoms = {alpha_idx, carbonyl_c_idx, carbonyl_o_idx, n_idx}
+    for m in aux_matches:
+        ring_ketone_atoms.update(m)
+    for neighbor in alpha_atom.GetNeighbors():
+        ni = neighbor.GetIdx()
+        if ni not in ring_ketone_atoms:
+            _, sub = _get_substituent_smiles(ket_mol, ni, ring_ketone_atoms)
+            r1_atoms.extend(sub)
+
+    ald_c_atom = ald_mol.GetAtomWithIdx(ald_c_idx)
+    r_ald_atoms = []
+    ring_ald_atoms = {ald_c_idx, ald_o_idx}
+    for neighbor in ald_c_atom.GetNeighbors():
+        ni = neighbor.GetIdx()
+        if ni not in ring_ald_atoms and neighbor.GetAtomicNum() != 1:
+            _, sub = _get_substituent_smiles(ald_mol, ni, ring_ald_atoms)
+            r_ald_atoms.extend(sub)
+
+    c4_idx = aux_matches[0][0]
+    c4_atom = ket_mol.GetAtomWithIdx(c4_idx)
+    aux_sub_atoms = []
+    evans_ring_atoms = set(aux_matches[0])
+    for neighbor in c4_atom.GetNeighbors():
+        ni = neighbor.GetIdx()
+        if ni not in evans_ring_atoms and ni != alpha_idx:
+            _, sub = _get_substituent_smiles(ket_mol, ni,
+                                             evans_ring_atoms | {alpha_idx})
+            aux_sub_atoms.extend(sub)
+
+    return {
+        "ket_mol": ket_mol, "ald_mol": ald_mol,
+        "alpha_idx": alpha_idx, "carbonyl_c_idx": carbonyl_c_idx,
+        "carbonyl_o_idx": carbonyl_o_idx, "n_idx": n_idx,
+        "ald_c_idx": ald_c_idx, "ald_o_idx": ald_o_idx,
+        "aux_matches": aux_matches, "metal_key": metal_key,
+        "r1_atoms": r1_atoms, "r_ald_atoms": r_ald_atoms,
+        "aux_sub_atoms": aux_sub_atoms,
+        "r1_feats": _compute_substituent_features(ket_mol, r1_atoms),
+        "r_ald_feats": _compute_substituent_features(ald_mol, r_ald_atoms),
+        "aux_sub_feats": _compute_substituent_features(ket_mol, aux_sub_atoms),
+    }
+
+
+def _build_single_ts(ts_type, parsed, metal_props, effective_metal):
+    """Build a single ZT graph for one TS type with 28d node / 8d edge features."""
+    from .zt_3d_coords import _build_chair_ring_3d, _place_substituent_3d
+
+    ket_mol = parsed["ket_mol"]
+    ald_mol = parsed["ald_mol"]
+    r1_atoms = parsed["r1_atoms"]
+    r_ald_atoms = parsed["r_ald_atoms"]
+    aux_sub_atoms = parsed["aux_sub_atoms"]
+    r1_feats = parsed["r1_feats"]
+    r_ald_feats = parsed["r_ald_feats"]
+
+    ax_eq = TS_AX_EQ[ts_type]
+    r1_axial = ax_eq["r1_axial"]
+    r_ald_axial = ax_eq["r_ald_axial"]
+
+    ts_oh = [0.0] * 4
+    ts_oh[int(ts_type)] = 1.0
+
+    empty_sub = {"n_heavy": 0, "n_aromatic": 0, "n_heteroatom": 0,
+                 "max_atomic_num": 0, "has_halogen": 0, "mw": 0.0}
+    face_zero = [0.0, 0.0, 0.0, 0.0]
+
+    def _ring_node(ntype, sub_feats, is_axial, face=None):
+        type_oh = [0.0] * 7
+        type_oh[int(ntype)] = 1.0
+        mp = [metal_props["ionic_radius"],
+              metal_props["coord_num"] / 6.0,
+              metal_props["hardness"] / 5.0,
+              metal_props["charge"] / 4.0]
+        sf = [sub_feats["n_heavy"] / 20.0, sub_feats["n_aromatic"] / 10.0,
+              sub_feats["n_heteroatom"] / 5.0, sub_feats["max_atomic_num"] / 53.0,
+              float(sub_feats["has_halogen"]), sub_feats["mw"] / 200.0]
+        fs = face if face else face_zero
+        rax = [1.0, float(is_axial), 1.0 - float(is_axial)]
+        return type_oh + mp + sf + ts_oh + fs + rax  # 28d
+
+    def _sub_node(atom, mol):
+        feat = [0.0] * 7
+        feat[int(ZTNodeType.SUBSTITUENT)] = 1.0
+        feat += [metal_props["ionic_radius"], metal_props["coord_num"] / 6.0,
+                 metal_props["hardness"] / 5.0, metal_props["charge"] / 4.0]
+        af = _atom_features(atom)
+        feat += [af[0] / 53.0, af[1] / 4.0, float(af[2]),
+                 float(af[3]), float(af[4]), af[5] / 4.0]
+        feat += ts_oh                     # [17:21]
+        feat += [0.0, 0.0, 0.0, 0.0]     # [21:25] no face steric
+        feat += [0.0, 0.0, 0.0]           # [25:28] not ring atom
+        return feat[:NODE_FEAT_DIM_MULTI]
+
+    # --- Ring nodes ---
+    nodes = []
+    node_types_list = []
+
+    nodes.append(_ring_node(ZTNodeType.METAL, empty_sub, 0))
+    node_types_list.append(int(ZTNodeType.METAL))
+    nodes.append(_ring_node(ZTNodeType.O_METAL, empty_sub, 0))
+    node_types_list.append(int(ZTNodeType.O_METAL))
+    nodes.append(_ring_node(ZTNodeType.C_CARBONYL, empty_sub, 0))
+    node_types_list.append(int(ZTNodeType.C_CARBONYL))
+    nodes.append(_ring_node(ZTNodeType.C_ALPHA, r1_feats, r1_axial))
+    node_types_list.append(int(ZTNodeType.C_ALPHA))
+    nodes.append(_ring_node(ZTNodeType.C_ALDEHYDE, r_ald_feats, r_ald_axial))
+    node_types_list.append(int(ZTNodeType.C_ALDEHYDE))
+    nodes.append(_ring_node(ZTNodeType.O_ALDEHYDE, empty_sub, 0))
+    node_types_list.append(int(ZTNodeType.O_ALDEHYDE))
+
+    # --- Substituent subgraphs ---
+    sub_edges_src, sub_edges_dst, sub_edge_types = [], [], []
+    offset = 6
+
+    def _add_sub(mol, atoms, anchor, cur_offset):
+        for atom_idx in atoms:
+            nodes.append(_sub_node(mol.GetAtomWithIdx(atom_idx), mol))
+            node_types_list.append(int(ZTNodeType.SUBSTITUENT))
+        if atoms:
+            sub_edges_src.extend([anchor, cur_offset])
+            sub_edges_dst.extend([cur_offset, anchor])
+            sub_edge_types.extend([int(ZTEdgeType.SUBSTITUENT)] * 2)
+        nmap = {ai: cur_offset + i for i, ai in enumerate(atoms)}
+        for ai in atoms:
+            for nb in mol.GetAtomWithIdx(ai).GetNeighbors():
+                ni = nb.GetIdx()
+                if ni in nmap and ni > ai:
+                    sub_edges_src.extend([nmap[ai], nmap[ni]])
+                    sub_edges_dst.extend([nmap[ni], nmap[ai]])
+                    sub_edge_types.extend([int(ZTEdgeType.WITHIN_SUB)] * 2)
+        return cur_offset + len(atoms)
+
+    offset = _add_sub(ket_mol, r1_atoms, 3, offset)
+    offset = _add_sub(ald_mol, r_ald_atoms, 4, offset)
+    offset = _add_sub(ket_mol, aux_sub_atoms, 3, offset)
+
+    # --- Ring edges ---
+    ring_edges = [
+        (0, 1, ZTEdgeType.RING_COORD), (1, 2, ZTEdgeType.RING_SINGLE),
+        (2, 3, ZTEdgeType.RING_DOUBLE), (3, 4, ZTEdgeType.RING_SINGLE),
+        (4, 5, ZTEdgeType.RING_SINGLE), (5, 0, ZTEdgeType.RING_COORD),
+    ]
+    edge_src, edge_dst, edge_type_list = [], [], []
+    for s, d, et in ring_edges:
+        edge_src.extend([s, d])
+        edge_dst.extend([d, s])
+        edge_type_list.extend([int(et), int(et)])
+    edge_src.extend(sub_edges_src)
+    edge_dst.extend(sub_edges_dst)
+    edge_type_list.extend(sub_edge_types)
+
+    # --- 3D coordinates ---
+    n_nodes = len(nodes)
+    ring_coords = _build_chair_ring_3d(effective_metal)
+    pos = np.zeros((n_nodes, 3), dtype=np.float32)
+    pos[:6] = ring_coords
+
+    if n_nodes > 6:
+        r1_n = len(r1_atoms)
+        rald_n = len(r_ald_atoms)
+        aux_n = len(aux_sub_atoms)
+        if r1_n:
+            d = "axial" if r1_axial else "equatorial"
+            pos[6:6 + r1_n] = _place_substituent_3d(ring_coords, 3, r1_n, d)
+        rald_off = 6 + r1_n
+        if rald_n:
+            d = "axial" if r_ald_axial else "equatorial"
+            pos[rald_off:rald_off + rald_n] = _place_substituent_3d(ring_coords, 4, rald_n, d)
+        aux_off = rald_off + rald_n
+        if aux_n:
+            d = "equatorial" if r1_axial else "axial"
+            pos[aux_off:aux_off + aux_n] = _place_substituent_3d(ring_coords, 3, aux_n, d)
+
+    # --- Edge features (8d) ---
+    edge_features = []
+    for i, et in enumerate(edge_type_list):
+        ef = [0.0] * 5
+        ef[int(et)] = 1.0
+        si, di = edge_src[i], edge_dst[i]
+        dist = float(np.linalg.norm(pos[si] - pos[di])) if si < n_nodes and di < n_nodes else 0.0
+        ef.append(dist / 5.0)
+        ef.append(1.0 / (dist + 0.1))
+        ef.append(1.0 if et in (int(ZTEdgeType.RING_SINGLE), int(ZTEdgeType.RING_DOUBLE),
+                                 int(ZTEdgeType.RING_COORD)) else 0.0)
+        edge_features.append(ef)
+
+    g = ZTGraph(
+        node_types=np.array(node_types_list, dtype=np.int64),
+        node_features=np.array(nodes, dtype=np.float32),
+        edge_index=np.array([edge_src, edge_dst], dtype=np.int64),
+        edge_types=np.array(edge_type_list, dtype=np.int64),
+        edge_features=np.array(edge_features, dtype=np.float32),
+        n_ring_atoms=6,
+        metal=effective_metal,
+        auxiliary_type="evans",
+        status="success",
+        ring_atom_indices=list(range(6)),
+    )
+    g.pos = pos
+    return g
+
+
+def build_multi_ts_graphs_evans(
+    ketone_smi: str,
+    aldehyde_smi: str,
+    metal: str = "none",
+    activator: str = "",
+    base: str = "",
+    ze_conformers: dict | None = None,
+    ald_conformers: dict | None = None,
+) -> MultiTSGraphSet:
+    """Build 4 ZT TS graphs (Z-syn / Z-anti / E-syn / E-anti) for one Evans reaction.
+
+    Args:
+        ketone_smi: Evans ketone SMILES
+        aldehyde_smi: Aldehyde SMILES
+        metal, activator, base: Reaction conditions
+        ze_conformers: From ze_enolate_generator (unused in 3D for now, reserved)
+        ald_conformers: Aldehyde conformer ensemble (reserved)
+
+    Returns:
+        MultiTSGraphSet with 4 graphs.
+    """
+    from .ze_enolate_generator import get_ze_weights
+    ze_weights = get_ze_weights(base, activator)
+
+    parsed = _parse_evans_reaction(ketone_smi, aldehyde_smi, activator)
+    if parsed is None:
+        return MultiTSGraphSet(
+            graphs=[_make_fail_graph("parse_fail")] * 4,
+            ze_weights=ze_weights,
+        )
+
+    effective_metal = parsed["metal_key"]
+    if metal not in ("none", "unknown", ""):
+        effective_metal = metal
+    metal_props = METAL_PROPERTIES.get(effective_metal, METAL_PROPERTIES["none"])
+
+    graphs = []
+    for ts_type in TSType:
+        try:
+            g = _build_single_ts(ts_type, parsed, metal_props, effective_metal)
+        except Exception as e:
+            logger.debug(f"TS build failed for {ts_type.name}: {e}")
+            g = _make_fail_graph(f"build_fail_{ts_type.name}")
+        graphs.append(g)
+
+    return MultiTSGraphSet(graphs=graphs, ze_weights=ze_weights)
+
+
+def build_multi_ts_graphs_batch(
+    df,
+    ze_cache: dict | None = None,
+    ald_cache: dict | None = None,
+    ketone_col: str = "canonical_ketone_smiles",
+    aldehyde_col: str = "canonical_aldehyde_smiles",
+    metal_col: str = "metal",
+    activator_col: str = "activator_type",
+    base_col: str = "base_type",
+) -> list[MultiTSGraphSet]:
+    """Build multi-TS graph sets for a DataFrame of Evans reactions.
+
+    Args:
+        df: DataFrame with reaction data
+        ze_cache: {ketone_smi: conformer_dict} from ze_conformers pkl
+        ald_cache: {aldehyde_smi: conformer_dict}
+
+    Returns:
+        list of MultiTSGraphSet, one per row.
+    """
+    results = []
+    n_success = 0
+
+    for i in range(len(df)):
+        row = df.iloc[i]
+        ket_smi = str(row.get(ketone_col, ""))
+        ald_smi = str(row.get(aldehyde_col, ""))
+        metal = str(row.get(metal_col, "none"))
+        activator = str(row.get(activator_col, ""))
+        base = str(row.get(base_col, ""))
+
+        ze_conf = ze_cache.get(ket_smi) if ze_cache else None
+        ald_conf = ald_cache.get(ald_smi) if ald_cache else None
+
+        ts_set = build_multi_ts_graphs_evans(
+            ket_smi, ald_smi, metal, activator, base,
+            ze_conformers=ze_conf, ald_conformers=ald_conf,
+        )
+        ts_set.reaction_idx = i
+        results.append(ts_set)
+
+        if all(g.status == "success" for g in ts_set.graphs):
+            n_success += 1
+
+    logger.info(f"Built multi-TS graphs: {n_success}/{len(df)} fully successful")
+    return results

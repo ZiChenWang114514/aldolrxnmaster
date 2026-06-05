@@ -447,6 +447,161 @@ class ZTHybrid(nn.Module):
         return self.classifier(out)
 
 
+# ═══════════════════════════ Multi-TS Attention Scorer ═══════════════════════════
+
+
+class MultiTSAttentionScorer(nn.Module):
+    """Multi-TS GNN: encodes 4 competing TS graphs, scores them with attention.
+
+    Uses the SAME ChiralMessagePassing encoder as ZT-Chiral (proven to reach
+    0.818 TSCV on Evans), adding only an attention-based TS scoring layer on top.
+
+    Architecture:
+      ChiralMP Encoder (shared) → Ring-aware readout → per-TS embedding (2*hidden) →
+      TS attention scorer → weighted aggregation → classifier.
+    """
+
+    def __init__(self, node_dim=28, edge_dim=8, hidden_dim=128,
+                 n_layers=4, n_classes=4, dropout=0.2, global_feat_dim=0,
+                 use_ze_prior=False, **kwargs):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.use_ze_prior = use_ze_prior
+
+        # Same encoder as ZT-Chiral: ChiralMessagePassing (not Enhanced)
+        self.node_embed = nn.Linear(node_dim, hidden_dim)
+
+        self.layers = nn.ModuleList([
+            ChiralMessagePassing(hidden_dim, n_edge_types=edge_dim)
+            for _ in range(n_layers)
+        ])
+        self.layer_norms = nn.ModuleList([
+            nn.LayerNorm(hidden_dim) for _ in range(n_layers)
+        ])
+
+        # Ring-aware readout (same as ZT-Chiral)
+        self.ring_transform = nn.Linear(hidden_dim, hidden_dim)
+        self.sub_transform = nn.Linear(hidden_dim, hidden_dim)
+
+        # TS scorer: 2*hidden → scalar score
+        readout_dim = hidden_dim * 2
+        self.score_mlp = nn.Sequential(
+            nn.Linear(readout_dim, hidden_dim // 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim // 2, 1),
+        )
+        self.temperature = nn.Parameter(torch.tensor(1.0))
+
+        # Classifier: aggregated TS embedding + optional global features
+        clf_input = readout_dim + global_feat_dim
+        self.classifier = nn.Sequential(
+            nn.Linear(clf_input, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, n_classes),
+        )
+        self.dropout = dropout
+
+    def _encode_all(self, x, edge_index, edge_attr, node_type, batch):
+        """Encode TS subgraphs using ChiralMP → ring-aware readout."""
+        h = self.node_embed(x)
+
+        for layer, ln in zip(self.layers, self.layer_norms):
+            h_new = layer(h, edge_index, edge_attr, node_type)
+            h = ln(h + h_new)
+            h = F.dropout(h, p=self.dropout, training=self.training)
+
+        # Ring-aware readout (same as ZT-Chiral)
+        is_ring = (node_type < 6)
+        ring_h = self.ring_transform(h) * is_ring.unsqueeze(1).float()
+        sub_h = self.sub_transform(h) * (~is_ring).unsqueeze(1).float()
+
+        ring_pool = global_mean_pool(ring_h, batch)
+        sub_pool = global_mean_pool(sub_h, batch)
+
+        return torch.cat([ring_pool, sub_pool], dim=1)  # (n_graphs, 2*hidden)
+
+    def forward(self, batch):
+        """Forward pass for a MultiTS batch.
+
+        Expects batch to have:
+          - Standard PyG fields: x, edge_index, edge_attr, batch
+          - node_type: (n_nodes,) int
+          - rxn_batch: (n_graphs_in_batch,) int mapping graph → reaction
+          - ts_type: (n_graphs_in_batch, 1) int
+          - is_dummy: (n_graphs_in_batch, 1) int
+          - Optional: x_global (n_graphs_in_batch, feat_dim)
+        """
+        # Encode all TS subgraphs together (shared ChiralMP encoder)
+        h_all = self._encode_all(
+            batch.x, batch.edge_index, batch.edge_attr,
+            batch.node_type, batch.batch,
+        )  # (n_graphs, 2*hidden)
+
+        # Score each TS
+        scores = self.score_mlp(h_all).squeeze(-1)  # (n_graphs,)
+
+        # Mask dummy graphs
+        is_dummy = batch.is_dummy.view(-1).float()
+        scores = scores - is_dummy * 1e9
+
+        # Optional Z/E prior
+        if self.use_ze_prior and hasattr(batch, "ze_weights"):
+            ze_w = batch.ze_weights.view(-1, 2)
+            ts_t = batch.ts_type.view(-1)
+            is_z = (ts_t < 2).float()
+            w_z = ze_w[:, 0].clamp(min=1e-8)
+            w_e = ze_w[:, 1].clamp(min=1e-8)
+            log_prior = is_z * torch.log(w_z) + (1 - is_z) * torch.log(w_e)
+            scores = scores + log_prior
+
+        # Attention within each reaction (4 TS per reaction)
+        rxn_batch = batch.rxn_batch
+        n_reactions = batch.n_reactions
+
+        # Vectorized softmax per reaction using scatter
+        temp = self.temperature.clamp(min=0.1)
+        scaled = scores / temp
+
+        # Numerically stable scatter softmax
+        max_scores = torch.zeros(n_reactions, device=scaled.device)
+        max_scores.scatter_reduce_(0, rxn_batch, scaled, reduce="amax", include_self=False)
+        exp_s = torch.exp(scaled - max_scores[rxn_batch])
+        sum_exp = torch.zeros(n_reactions, device=scaled.device)
+        sum_exp.scatter_add_(0, rxn_batch, exp_s)
+        alpha = exp_s / sum_exp[rxn_batch].clamp(min=1e-8)
+
+        # Weighted aggregation per reaction
+        h_agg = torch.zeros(n_reactions, h_all.size(1), device=h_all.device)
+        h_agg.scatter_add_(0, rxn_batch.unsqueeze(1).expand_as(h_all),
+                           alpha.unsqueeze(1) * h_all)
+
+        # Classifier
+        clf_input = h_agg
+        if hasattr(batch, "x_global") and batch.x_global is not None:
+            # Take global features from the first graph of each reaction
+            # Use scatter to find first index per reaction
+            first_idx = torch.zeros(n_reactions, dtype=torch.long, device=h_all.device)
+            for r in range(n_reactions):
+                first_idx[r] = (rxn_batch == r).nonzero(as_tuple=True)[0][0]
+            x_global = batch.x_global[first_idx]
+            clf_input = torch.cat([clf_input, x_global], dim=1)
+
+        logits = self.classifier(clf_input)
+
+        # Store for analysis
+        self._last_alpha = alpha
+        self._last_rxn_batch = rxn_batch
+        self._last_ts_types = batch.ts_type.view(-1)
+
+        return logits
+
+    def get_ts_attention(self):
+        """Return per-reaction TS attention weights."""
+        return self._last_alpha, self._last_rxn_batch, self._last_ts_types
+
+
 # ═══════════════════════════ Model Registry ═══════════════════════════
 
 from .chidek import ZTChiDeK
@@ -460,4 +615,5 @@ ZT_MODELS = {
     "ZT-GCPNet": ZTGCPNet,
     "ZT-ComENet": ZTComENet,
     "ZT-Hybrid": ZTHybrid,
+    "MultiTS": MultiTSAttentionScorer,
 }
