@@ -11,21 +11,17 @@ Strategy:
   Level-1: LogisticRegression or LightGBM meta-learner
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_stacking_v4.py
+    conda run -n aldol-rxn python scripts/run_stacking.py
 """
 
 import logging
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import N_CLASSES, PRED_DIR, RESULTS_DIR
 from chiralaldol.data_io import load_mechaware_bw, load_splits, prepare_Xy, save_predictions

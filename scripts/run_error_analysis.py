@@ -6,14 +6,10 @@ Usage:
 """
 
 import logging
-import sys
 from collections import Counter
-from pathlib import Path
 
 import pandas as pd
 from sklearn.metrics import balanced_accuracy_score, confusion_matrix
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, PRED_DIR, RESULTS_DIR
 

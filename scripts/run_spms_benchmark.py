@@ -10,15 +10,11 @@ Usage:
 
 import argparse
 import logging
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import FEAT_DIR, PRED_DIR, RESULTS_DIR, SPMS_DIR
 from chiralaldol.data_io import load_features, load_labels, load_splits, save_predictions

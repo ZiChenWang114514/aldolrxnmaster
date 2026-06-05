@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Run Optuna-tuned models on ALL splits (TSCV + Scaffold + Grouped).
 
-Applies the best hyperparameters found by run_optuna_v4.py to the full
-benchmark suite, producing results comparable to run_all_models_v4.py.
+Applies the best hyperparameters found by run_optuna.py to the full
+benchmark suite, producing results comparable to run_benchmark.py.
 
 Usage:
     conda run -n aldol-rxn python scripts/run_optuna_benchmark.py
@@ -10,9 +10,7 @@ Usage:
 
 import json
 import logging
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -20,8 +18,6 @@ import xgboost as xgb
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
 from sklearn.utils.class_weight import compute_sample_weight
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import N_CLASSES, N_JOBS, OPTUNA_DIR, PRED_DIR, RESULTS_DIR
 from chiralaldol.data_io import load_mechaware_bw, load_splits, prepare_Xy, save_predictions

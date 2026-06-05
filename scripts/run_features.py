@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""V4 Feature Engineering: conformer generation + steric + chirality + auxiliary + integration.
+"""V5 Feature Engineering: conformer generation + steric + chirality + auxiliary + integration.
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_features_v4.py
+    conda run -n aldol-rxn python scripts/run_features.py
 """
 
 import json
 import pickle
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -17,8 +15,6 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem import Descriptors
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR, VALID_AUXILIARIES
 

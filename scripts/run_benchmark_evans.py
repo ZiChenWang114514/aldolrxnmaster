@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
-"""V4 Evans-only Benchmark: 11 models x 10 splits on Evans subset (1654 rows).
+"""V5 Evans-only Benchmark: 11 models x 10 splits on Evans subset (1654 rows).
 
-Filters all existing splits_v4/ JSON files to Evans-only rows, then runs the
-same model suite as run_all_models_v4.py. Allows fair comparison of Evans-only
-performance vs. full-dataset benchmark (benchmark_v4.csv).
+Filters all existing splits_v5/ JSON files to Evans-only rows, then runs the
+same model suite as run_benchmark.py. Allows fair comparison of Evans-only
+performance vs. full-dataset benchmark (benchmark_v5.csv).
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_evans_benchmark_v4.py 2>&1 | tee logs/benchmark_v4_evans.log
+    conda run -n aldol-rxn python scripts/run_benchmark_evans.py 2>&1 | tee logs/benchmark_v5_evans.log
 """
 
 import logging
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, PRED_DIR, RESULTS_DIR
 from chiralaldol.data_io import load_mechaware_bw, load_mechaware_full, load_splits, prepare_Xy, save_predictions

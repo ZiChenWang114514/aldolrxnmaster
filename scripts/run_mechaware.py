@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""V4 MechAware: Z/E enolate separation + BW weighting + full feature integration.
+"""V5 MechAware: Z/E enolate separation + BW weighting + full feature integration.
 
-Generates 156d MechAware-Full features for V4 data:
+Generates 156d MechAware-Full features for V5 data:
   - Ketone steric 24d
   - Z-enolate steric 24d
   - E-enolate steric 24d
@@ -13,23 +13,19 @@ Generates 156d MechAware-Full features for V4 data:
   = 158d total
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_mechaware_v4.py
+    conda run -n aldol-rxn python scripts/run_mechaware.py
 """
 
 import pickle
 import signal
-import sys
 import time
 from multiprocessing import Pool
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from rdkit import Chem, RDLogger
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR
 from chiralaldol.steric_descriptors import (

@@ -19,10 +19,8 @@ import argparse
 import logging
 import os
 import pickle
-import sys
 import time
 import warnings
-from pathlib import Path
 
 import lightning as L
 import numpy as np
@@ -34,8 +32,6 @@ from sklearn.metrics import balanced_accuracy_score
 RDLogger.logger().setLevel(RDLogger.ERROR)
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPLITS_DIR
 from chiralaldol.data_io import prepare_Xy, load_splits, save_predictions

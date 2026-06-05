@@ -10,9 +10,7 @@ Usage:
 
 import json
 import logging
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -20,8 +18,6 @@ import shap
 import xgboost as xgb
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import OPTUNA_DIR, RESULTS_DIR, SPLITS_DIR
 from chiralaldol.data_io import prepare_Xy

@@ -5,14 +5,12 @@ Literature motivation: [7] Betinol 2023 — generality evaluation framework.
 Chemical space audit showed Evans=0.771, Crimmins=0.453, Oppolzer=0.371 in unified model.
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_aux_models_v4.py
+    conda run -n aldol-rxn python scripts/run_aux_models.py
 """
 
 import json
 import logging
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -21,8 +19,6 @@ from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.metrics import balanced_accuracy_score, confusion_matrix
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.utils.class_weight import compute_sample_weight
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, OPTUNA_DIR, RESULTS_DIR
 from chiralaldol.data_io import prepare_Xy

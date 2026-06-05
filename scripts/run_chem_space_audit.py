@@ -17,10 +17,8 @@ Usage:
 """
 
 import logging
-import sys
 import time
 from collections import Counter
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -28,8 +26,6 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.preprocessing import StandardScaler
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR
 from chiralaldol.data_io import load_splits, prepare_Xy

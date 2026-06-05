@@ -13,9 +13,7 @@ Usage:
 
 import logging
 import pickle
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -25,8 +23,6 @@ import torch.nn.functional as F
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_class_weight
 from torch_geometric.loader import DataLoader
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import (
     CLEAN_DIR, FEAT_DIR, PRED_DIR, RESULTS_DIR, SPMS_DIR,

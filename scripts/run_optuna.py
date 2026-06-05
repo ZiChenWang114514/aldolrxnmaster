@@ -5,18 +5,16 @@ Literature motivation: [13] Baczewska 2024 (Angew. Chem.) — Optuna 300-step
 search significantly improved NN on ~1000 catalyst reactions.
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_optuna_v4.py
-    conda run -n aldol-rxn python scripts/run_optuna_v4.py --model xgb --n-trials 300
-    conda run -n aldol-rxn python scripts/run_optuna_v4.py --model et --n-trials 300
-    conda run -n aldol-rxn python scripts/run_optuna_v4.py --model all
+    conda run -n aldol-rxn python scripts/run_optuna.py
+    conda run -n aldol-rxn python scripts/run_optuna.py --model xgb --n-trials 300
+    conda run -n aldol-rxn python scripts/run_optuna.py --model et --n-trials 300
+    conda run -n aldol-rxn python scripts/run_optuna.py --model all
 """
 
 import argparse
 import json
 import logging
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import optuna
@@ -24,8 +22,6 @@ import xgboost as xgb
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import OPTUNA_DIR, SPLITS_DIR
 from chiralaldol.data_io import load_mechaware_bw, prepare_Xy

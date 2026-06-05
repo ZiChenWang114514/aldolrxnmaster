@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-"""Chemprop v2 MPNN baseline on V4d data — fair comparison with tree models.
+"""Chemprop v2 MPNN baseline on V5 data — fair comparison with tree models.
 
 Uses ketone+aldehyde SMILES as multi-component input (no product leakage).
-Runs on all V4d splits (TSCV + scaffold + grouped) for direct comparison.
+Runs on all V5 splits (TSCV + scaffold + grouped) for direct comparison.
 
 Usage:
-    CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop_v4.py
-    CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop_v4.py --epochs 80
-    CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop_v4.py --mode features_only
+    CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop.py
+    CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop.py --epochs 80
+    CUDA_VISIBLE_DEVICES=0 conda run -n aldol-rxn python scripts/run_chemprop.py --mode features_only
 """
 
 import argparse
 import logging
 import os
-import sys
 import time
 import warnings
-from pathlib import Path
 
 import lightning as L
 import numpy as np
@@ -28,8 +26,6 @@ from sklearn.metrics import balanced_accuracy_score
 RDLogger.logger().setLevel(RDLogger.ERROR)
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, PRED_DIR, RESULTS_DIR
 from chiralaldol.data_io import save_predictions

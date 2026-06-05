@@ -7,13 +7,9 @@ Usage:
 
 import logging
 import pickle
-import sys
 import time
-from pathlib import Path
 
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR, VALID_AUXILIARIES
 from chiralaldol.zt_3d_coords import add_3d_coords_batch

@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
-"""V4 Data Splitting: TSCV + Scaffold + Grouped Random.
+"""V5 Data Splitting: TSCV + Scaffold + Grouped Random.
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_splits_v4.py
+    conda run -n aldol-rxn python scripts/run_splits.py
 """
 
 import json
 import re
-import sys
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem.Scaffolds import MurckoScaffold
 from sklearn.model_selection import GroupShuffleSplit
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, SPLITS_DIR, VALID_AUXILIARIES
 

@@ -31,7 +31,6 @@ from torch_geometric.data import Data, Batch
 
 warnings.filterwarnings("ignore")
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # Add ChiENN to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "external" / "ChiENN"))
 

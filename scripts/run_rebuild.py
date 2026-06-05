@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-"""V4 Rebuild Pipeline: Raw Reaxys (134K) -> substrate-controlled aldol clean dataset.
+"""V5 Rebuild Pipeline: Raw Reaxys (134K) -> substrate-controlled aldol clean dataset.
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_rebuild_v4.py
+    conda run -n aldol-rxn python scripts/run_rebuild.py
 """
 
-import sys
 import time
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import PROJECT_DIR
 from chiralaldol.rebuild import (

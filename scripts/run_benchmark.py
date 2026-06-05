@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
-"""V4 Model Benchmark: 11 active models x 10 splits (no DRFP -- confirmed leakage).
+"""V5 Model Benchmark: 11 active models x 10 splits (no DRFP -- confirmed leakage).
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_all_models_v4.py
+    conda run -n aldol-rxn python scripts/run_benchmark.py
 """
 
 import logging
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import PRED_DIR, RESULTS_DIR, TARGET_LABEL
 from chiralaldol.data_io import load_mechaware_bw, load_mechaware_full, load_splits, prepare_Xy, save_predictions
@@ -45,8 +41,6 @@ def main():
     y_valid = y[valid_mask]
     n_classes = len(np.unique(y_valid))
     logger.info(f"Classes: {n_classes}, dist: {dict(zip(*np.unique(y_valid, return_counts=True)))}")
-    label_suffix = "_sa" if TARGET_LABEL == "label_joint_sa" else ""
-
     splits = load_splits()
     logger.info(f"Loaded {len(splits)} splits")
 
@@ -86,7 +80,7 @@ def main():
         X = feat_loader(X_all, y, feat_names)
         logger.info(f"  Features: {X.shape[1]}d")
 
-        out_dir = PRED_DIR / f"{label_suffix}{category}"
+        out_dir = PRED_DIR / category
         out_dir.mkdir(parents=True, exist_ok=True)
 
         for split_name, split_data in splits.items():
@@ -141,7 +135,7 @@ def main():
 
     # Save results table
     results_df = pd.DataFrame(all_results)
-    table_path = RESULTS_DIR / "tables" / f"benchmark_v4{label_suffix}.csv"
+    table_path = RESULTS_DIR / "tables" / "benchmark_v4.csv"
     table_path.parent.mkdir(parents=True, exist_ok=True)
     results_df.to_csv(table_path, index=False)
     logger.info(f"\nSaved results to {table_path}")

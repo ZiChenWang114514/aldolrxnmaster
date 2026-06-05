@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
-"""V4 Full Benchmark: includes MechAware-Full/BW + original models.
+"""V5 Full Benchmark: includes MechAware-Full/BW + original models.
 
-Requires run_mechaware_v4.py to have completed first.
+Requires run_mechaware.py to have completed first.
 
 Usage:
-    conda run -n aldol-rxn python scripts/run_benchmark_v4_full.py
+    conda run -n aldol-rxn python scripts/run_benchmark_full.py
 """
 
 import logging
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from chiralaldol.config import CLEAN_DIR, FEAT_DIR, N_CLASSES, PRED_DIR, RESULTS_DIR, VALID_AUXILIARIES
 from chiralaldol.data_io import (
