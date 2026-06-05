@@ -24,6 +24,31 @@
 | 9 | cond_xgb | baseline | 0.252±0.038 | 0.261 | 0.409±0.016 |
 | 10 | majority | baseline | 0.250±0.000 | 0.250 | 0.250±0.000 |
 
+### V5 Optuna-Tuned Models (200 trials/model)
+
+| Rank | Model | TSCV mean±std | Scaffold | Grouped mean±std |
+|------|-------|---------------|----------|-----------------|
+| 1 | **xgb_optuna** | **0.739±0.074** | — | **0.760** |
+| 2 | et_optuna | 0.722±0.061 | — | 0.730 |
+| 3 | ma_bw_xgb_optuna | 0.666±0.034 | — | 0.752 |
+
+### V5 ZT-GNN Models (Evans-only, 1661 rows, TSCV 4-fold)
+
+| Rank | Model | TSCV mean±std | 说明 |
+|------|-------|---------------|------|
+| 1 | **ZT-Chiral+feat** | **0.818±0.017** | 手性消息传递 + 156d global features |
+| 2 | ZT-ComENet+feat | 0.784±0.051 | 组合等变网络 |
+| 3 | ZT-Hybrid+feat | 0.776±0.058 | 多视角融合 |
+| 4 | ZT-GAT+feat | 0.753±0.041 | 图注意力 |
+| 5 | ZT-GIN+feat | 0.731±0.081 | 图同构网络 |
+| 6 | ZT-ChiDeK+feat | 0.721±0.061 | 手性 + DekeyNetwork |
+| 7 | ZT-GCPNet+feat | 0.715±0.046 | 图属性网络 |
+| — | *Baselines* | | |
+| — | Chemprop+156d+ZT | 0.809 | MPNN + ZT 32d |
+| — | Evans ET (tree) | 0.710 | 无图表示 |
+
+**负面结果**: MultiTS (多 TS 注意力, 未完成): fold1-2 估计 ~0.715, 远低于 ZT-Chiral 0.818。额外的多 TS 构象注意力机制未带来提升。
+
 ### V4d → V5 变化 (2215 → 2427 VALID 行)
 
 | 指标 | V4d (2215行, 154d) | V5 (2427行, 156d) | 变化 |

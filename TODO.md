@@ -1,14 +1,16 @@
 # AldolRxnMaster — Roadmap (深度审计版)
 
-## 项目状态 (2026-05-30)
+## 项目状态 (2026-06-05)
 
 - **数据**: V5 管线从 134K Reaxys 原始数据重建，**2434 行**（9 种辅基类型 + 7 other）
 - **V5 辅基**: Evans (1661) + Crimmins thione (260) + Crimmins oxathione (169) + Oppolzer (141) + **Abiko (127)** + **Menthyl ester (32)** + **Oxazoline (21)** + **Myers (16)** + Other (7)
 - **VALID**: 10 种辅基, **2427 行**, **156d** 特征
-- **冠军**: **v4b_full_xgb** (156d), TSCV = **0.652 ± 0.041**, Scaffold = **0.831**, Grouped = **0.760 ± 0.016**
+- **冠军 (Evans-only)**: **ZT-Chiral+feat** (ZT 图 + 156d), TSCV = **0.818 ± 0.017**
+- **冠军 (全数据集)**: **XGB Optuna** (156d), TSCV = **0.739 ± 0.074**, Grouped = **0.760**
 - **V3 真实性能** (2026-05-27 重新评估): V3 KNN balanced acc = **0.415**（200行测试，随机split，仅预测多数类）
 - **3D syn/anti**: step08b 3D 二面角法，97.9% 成功率，仅作分析标签
 - **管线可复现**: 13 步清洗 (含 step08b) + 行级审计，完全从原始 Reaxys 出发
+- **代码清理**: 2026-06-05 完成大规模重构，41→22 脚本，消除 ~1700 行重复代码
 
 ---
 
@@ -17,7 +19,11 @@
 - [x] **V5 数据重建**: 134K Reaxys → 13 步清洗 → 2434 行 (9 种辅基 + 7 other)
 - [x] **V5 辅基扩展**: +Abiko(127)/Menthyl(32)/Oxazoline(21)/Myers 放宽(16)/Ynamide 排除(47)
 - [x] **V5 特征工程**: 156d = Steric(34) + Conditions(44) + Aux(15) + Chirality(7) + R-group(7) + ChiralEnv(21) + AldPri(8) + DeltaChiral(16) + ChiralDet(3) + n_stereo(1)
-- [x] **V5 Benchmark**: XGB TSCV=0.652, Grouped=0.760, Scaffold=0.831
+- [x] **V5 Benchmark**: 默认 ET TSCV=0.677, Optuna XGB TSCV=0.739, Scaffold=0.831
+- [x] **ZT-GNN Evans Benchmark**: 7 模型, ZT-Chiral+feat TSCV=0.818 (Evans-only 冠军)
+- [x] **SPMS 球面投影特征**: 16d stats + 24d face map, XGB+face_map TSCV≈0.685
+- [x] **Chemprop MPNN**: SMILES-only TSCV=0.601, +156d=0.626, +ZT=0.809
+- [x] **代码清理**: sys.path 去除, dead code 清除, DRY 重构 (2026-06-05)
 - [x] **V4 数据重建**: 134K Reaxys → 13 步清洗 → 2334 行 (6 种辅基)
 - [x] **辅基检测**: Evans + Crimmins thione/oxathione + Oppolzer + Myers + generic
 - [x] **手性催化排除**: proline/BINAP/cinchona 等手性催化剂自动排除
@@ -112,352 +118,104 @@ V4 TSCV=0.624 是 balanced acc（更严格），因此 V4 实际上显著优于 
 
 ---
 
-## 进行中
+## 已完成的实验 (V5 + ZT-GNN)
 
-- [x] **RS-SynAnti 实验收尾**: TARGET_LABEL 已回 `label_joint`
-- [x] **Evans-only V4d 基准**: Evans per-auxiliary bal_acc=0.771（化学空间审计确认）
-- [x] **Optuna 超参搜索**: 3 models × 200 trials → ma_bw_xgb TSCV 0.604→0.666
-- [x] **Ensemble Stacking**: TSCV=0.617（未提升），OOF-LR bound=0.660
-- [x] **化学空间审计**: PCA + k-means + per-auxiliary + scaffold + TSCV distance
+- [x] **V5 Optuna 超参搜索**: XGB TSCV=0.739, ET=0.722, MA-BW-XGB=0.666
+- [x] **ZT 过渡态图构建**: Evans 99.4% 覆盖率 (1644/1654), 模板拼接法
+- [x] **ZT-GNN 7 模型 benchmark**: Chiral=0.818, ComENet=0.784, Hybrid=0.776, GAT=0.753, GIN=0.731
+- [x] **SPMS 全流程**: Phase A/B/C + 13 benchmark 实验
+- [x] **SHAP 分析**: 153d × 4-class, top=ald_pri_priority_proxy
+- [x] **错误分析**: RR→SS 最常见 (CIP 翻转), 0 高置信度错误, 259 标签候选
+- [x] **化学空间审计**: distance-accuracy r=-0.916, 5 clusters 对应辅基类型
 
----
+## 负面结果 (已排除)
 
-## 下一步优先级排序
-
----
-
-### 【P0 — 紧急修复，影响结果正确性】
-
-#### P0.1 重置 TARGET_LABEL
-- **文件**: `scripts/run_all_models_v4.py` 第 ~80 行
-- **当前**: `TARGET_LABEL = "label_joint_sa"`
-- **改为**: `TARGET_LABEL = "label_joint"`
-- **原因**: RS-SynAnti 实验已完成（TSCV=0.423，结论不可行），主线模型需要 label_joint
-
-```python
-# run_all_models_v4.py line ~80
-TARGET_LABEL = "label_joint"  # 改回主线标签
-```
-
-#### P0.2 数据完整性快速验证
-```bash
-conda run -n aldol-rxn python -c "
-import pandas as pd
-labels = pd.read_csv('data/features_v4/labels.csv')
-print('列数:', len(labels.columns), '期望7')
-print('label_joint 有效:', labels['label_joint'].notna().sum(), '期望2334')
-print('label_joint_sa 有效:', labels['label_joint_sa'].notna().sum(), '期望2304')
-"
-```
+- **MultiTS 多 TS 注意力** (2026-06-05): fold1-2 ~0.715 vs ZT-Chiral 0.818, 放弃 (stash 保存)
+- **xTB 电子特征** (12d): -35% TSCV, 噪声过大
+- **qTS 过渡态特征** (4d): -20% TSCV, MMFF TS 不准确
+- **DRFP 指纹**: 产物 @/@@ 直接编码答案 → 标签泄漏
+- **Stacking 集成**: TSCV=0.617, 未提升 (inner-val 数据不足)
+- **RS-SynAnti 预测**: TSCV=0.423, 特征与 syn/anti 正交 (r=0.083)
 
 ---
 
-### 【P1 — 高价值实验，直接影响论文】
-
-#### P1.1 Evans-only V4d 基准
-
-**目的**: 得到与 V3 数据集规模可比的结果，为论文提供 V3 vs V4 公平对比
-
-**设计方案**:
-```bash
-# 方法 A: 直接过滤现有特征矩阵中的 Evans 行
-conda run -n aldol-rxn python -c "
-import pandas as pd, json, numpy as np
-
-# 找 Evans 行的 indices
-df = pd.read_csv('data/clean_v4/substrate_aldol_clean.csv')
-evans_mask = df['auxiliary_type'] == 'Evans'
-evans_idx = df[evans_mask].index.tolist()
-print(f'Evans 行数: {len(evans_idx)}')  # 期望 1654
-
-# 过滤特征矩阵
-X = pd.read_csv('data/features_v4/v4_features.csv')
-labels = pd.read_csv('data/features_v4/labels.csv')
-X_evans = X.iloc[evans_idx]
-labels_evans = labels.iloc[evans_idx]
-X_evans.to_csv('data/features_v4/v4_features_evans.csv', index=False)
-labels_evans.to_csv('data/features_v4/labels_evans.csv', index=False)
-"
-```
-
-**新脚本**: `scripts/run_evans_benchmark_v4.py`（仿照 run_all_models_v4.py，用 evans_mask 过滤）
-**预期**: Evans TSCV ≈ 0.65-0.75（更高，因为辅基一致）
-**意义**: 公平对比 V3 Chemprop (~0.65 simple acc) vs V4 ET（balanced acc）
-
-#### P1.2 V3 代码完整修复（学术比较用）
-
-**目的**: 论文中提供公平的 V3 benchmark 数字
-
-**修复列表**:
-1. `fingerprints.py:16` 删除 `sys.setdefaultencoding`（已完成）
-2. 标签编码统一: `label_Ca/Cb ±1 → 0/1`，stereo_class {0,1,4,5} → {0,1,2,3}
-3. 添加 class_weight='balanced' 到投票逻辑（解决多数类崩溃）
-4. 实现 TSCV: 按 Year 排序，4-fold，报告 balanced accuracy
-5. 去除 augmented_enantiomer（训练集去重，防止 test 泄漏）
-
-**预期**: V3 修复后 TSCV balanced acc ≈ 0.42-0.50（低于 V4 0.624）
-**文件位置**: `v3_original/05_code_notebooks/References_aldol-3-substructure/`
-
-#### P1.3 Ensemble Stacking
-
-**目的**: 组合 v4b_full_et (TSCV=0.624) + ma_bw_xgb (Grouped=0.752) 进一步提升
-
-**设计**:
-```
-Level-0 预测器:
-  - v4b_full_et    (128d)   TSCV=0.624
-  - ma_bw_xgb      (156d)   TSCV=0.604
-  - v4b_full_xgb   (128d)   TSCV=0.602
-Level-1: 3*4=12d OOF 概率向量 → LogisticRegression / LightGBM
-```
-
-**新脚本**: `scripts/run_stacking_v4.py`
-**关键**: 必须用 OOF (out-of-fold) 预测，否则 Level-1 在 train 上过拟合
-**预期**: TSCV 提升 +0.02-0.05 → 约 0.640-0.670
-
-#### P1.4 辅基感知建模（Auxiliary-aware）
-
-**目的**: 不同辅基的立体控制机制不同，统一模型可能欠拟合
-
-**策略 A — 独立模型**:
-```python
-for aux_type in ['Evans', 'Crimmins_thione', 'Oppolzer']:
-    mask = df['auxiliary_type'] == aux_type
-    X_sub = X[mask]  # Evans=1654, Crimmins=259, Oppolzer=141
-    # 独立 TSCV
-```
-
-**策略 B — 强辅基分层特征**:
-- 在现有 6d aux 向量基础上加入辅基骨架 Morgan 指纹（16d）
-- 辅基类型 × 金属类型交叉特征
-
-**新脚本**: `scripts/run_aux_models_v4.py`
-**预期**: Evans 独立模型 TSCV ≈ 0.65-0.72
+## 下一步优先级排序 (2026-06-05 更新)
 
 ---
 
-### 【P2 — 中等价值，改善模型】
+### 【P0 — 全部已完成】 ✅
 
-#### P2.1 Optuna 超参优化
-
-**优先模型**:
-- ExtraTrees: `n_estimators`(100-1000), `max_features`(sqrt/log2/0.1-1.0), `min_samples_split`(2-20)
-- XGBoost: `learning_rate`(0.01-0.3), `max_depth`(3-10), `subsample`(0.5-1.0), `colsample_bytree`
-
-**框架**:
-```python
-import optuna
-def objective(trial):
-    params = {
-        'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
-        'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', 0.3, 0.5]),
-        ...
-    }
-    # TSCV balanced accuracy
-    return tscv_score(params)
-
-study = optuna.create_study(direction='maximize')
-study.optimize(objective, n_trials=100)
-```
-
-**新脚本**: `scripts/run_optuna_v4.py`
-**预期**: TSCV 提升 0.01-0.03
-
-#### P2.2 syn/anti 专用特征工程（下一代特征）
-
-**背景**: RS-SynAnti 实验（label_joint_sa TSCV=0.423）失败的根因是特征与 syn/anti 正交
-- 当前最高特征-synanti 相关: r=0.083
-- Ca 和 syn/anti 正交: r=-0.006
-
-**需要的新特征（Felkin-Anh/Zimmerman-Traxler 相关）**:
-- 醛 α-位取代基 si/re 面区分指标（手性 α-碳时特别重要）
-- 醛 α-碳的 A^1,3 应变估算（甲基 ax/eq 位倾向）
-- 烯醇化物 Z/E 比例（从金属/碱条件推断）
-- 酮 α-位取代基对称性（决定 E/Z 烯醇化物选择性）
-- 过渡态手性匹配度（auxiliary-metal-TS 三元组）
-
-**文件修改**: `scripts/run_features_v4.py` 新增函数 `compute_synanti_features()`
-**挑战**: 需要更多化学先验知识，可能需要 TS 计算
-
-#### P2.3 多构象 Sterimol 特征
-
-**当前**: 每个 SMILES 用单一最低能量构象的 Sterimol B1/B5/L 参数
-**改进**:
-```python
-# 当前: sterimol_B5 = 单构象计算
-# 改进: 
-sterimol_B5_mean = np.mean([conf_sterimol(conf) for conf in top3_confs])
-sterimol_B5_std  = np.std([conf_sterimol(conf) for conf in top3_confs])
-```
-**预期**: Sterimol 参数更准确，steric 特征代表性更好
-
-#### P2.4 Zimmerman-Traxler TS 几何（第二次尝试）
-
-**第一次失败原因**（V4 qTS, -20% TSCV）:
-1. TS 几何由 MMFF 估算，不准
-2. 只有 4d 特征，信噪比低
-
-**第二次方案**:
-- 使用 xTB 计算 TS 几何（比 MMFF 准）
-- 增加 TS 特征维度：Ca-Cb 键长、金属配位键长、椅式/船式判断、OH 方向
-- 只针对 Evans + Crimmins（有明确 Zimmerman-Traxler TS 模型的辅基）
-
-**文件**: 新建 `scripts/run_ts_features_v4.py`（需要 xTB 集成）
+- [x] TARGET_LABEL 已回 `label_joint`
+- [x] V5 数据完整性验证通过
+- [x] V4→V5 路径迁移完成 (config.py)
 
 ---
 
-### 【P3 — 特征分析，支持论文】
+### 【P1 — 数据质量 & 模型扩展】
 
-#### P3.1 SHAP 特征重要性分析
+#### P1.1 新辅基标签质量审查 (高优先级, 低成本)
+- **Menthyl ester**: balanced_acc=0.250 (完全随机), 32 行 — 是否标签有系统性错误?
+- **Oxazoline**: balanced_acc=0.500, 21 行 — 样本量还是标签噪声?
+- **方法**: 手动抽查 CIP 标签 + 原始 Reaxys 反应条件
 
-**分析计划**:
-```python
-import shap
-explainer = shap.TreeExplainer(et_model)
-shap_values = explainer.shap_values(X_test)  # shape: (n, 4, 128)
-# 每个 class 的特征重要性
-shap.summary_plot(shap_values[0], X_test, feature_names=feature_names)
-```
+#### P1.2 ZT 图扩展到 Crimmins/Oppolzer (中优先级)
+- Crimmins thione/oxathione 也遵循 Zimmerman-Traxler TS 模型 (Ti 金属, 6-membered chair)
+- Oppolzer 用 B(OBu₂) enolate，也有类似 TS
+- 预期: Evans+Crimmins+Oppolzer = 2231 行 (92% 数据) 可用 ZT-GNN
+- 如成功，全数据集 GNN 冠军可能显著提升
 
-**关键问题**:
-- 手性特征（7d）的 SHAP 贡献有多大？（期望最重要）
-- 醛 CIP 优先级（8d）在 class 2/3 上是否比 0/1 更重要？
-- steric (34d) 中哪几个 Sterimol 参数最重要？
-- ChiralEnv (21d) 对提升哪个 class 贡献最大？
-
-**输出**: `results/figures/shap/`，用于论文 Figure 3
-**新脚本**: `scripts/run_shap_analysis.py`
-
-#### P3.2 错误案例深度分析
-
-**分析维度**:
-- 按辅基类型分层错误率（Evans vs Crimmins vs Oppolzer）
-- 按 Year 分层（早期 1980-2000 vs 近期 2010-2023）
-- 错误预测的 4-class 混淆矩阵详细分析
-- 高置信度但错误的案例（挖掘化学原因）
-- label_joint_sa 预测为什么对 RS/SR 错得更多？
-
-**输出**: `results/analysis/error_analysis.csv`
-**新脚本**: `scripts/run_error_analysis.py`
-
-#### P3.3 数据集描述性统计可视化
-
-**内容（论文 Figure 1）**:
-- 6 种辅基类型分布饼图（附代表性结构）
-- 数据筛选漏斗（134K → 2334 行）
-- label_joint 4-class 分布（RR=, RS=, SR=, SS= 各比例）
-- 按 Year 的数据累积曲线（展示时序性）
-- 反应条件分布（金属/溶剂/碱）
-
-**新脚本**: `scripts/plot_dataset_stats.py`
-
-#### P3.4 3D syn/anti 深度分析
-
-**现有**: label_SA vs label_syn_anti_3d 一致率=45.6%，二面角分布双峰
-**待补充**:
-- 按辅基类型分层的 syn/anti 分布（Evans 是否比 Crimmins 更 syn 选择性？）
-- 二面角 vs 金属类型散点图（B vs Ti vs Sn）
-- syn/anti 与 conformer 能量的关系
+#### P1.3 混合模型: ZT-GNN + Tree fallback (中优先级)
+- 对有 ZT 图的辅基 (Evans/Crimmins/Oppolzer) 用 GNN
+- 对 Abiko/Menthyl 等无 ZT 的辅基用 Tree
+- 论文叙事: "mechanistically informed model selection"
 
 ---
 
-### 【P4 — 论文写作准备】
+### 【P2 — 论文写作准备】
 
-#### P4.1 论文框架
+#### P2.1 论文框架
 
-**建议 Story（A → B → C）**:
-- A: 现有方法在严格 TSCV 下局限性（V3 KNN=0.415 balanced，V3 Chemprop≈0.45）
-- B: 物理化学特征工程（128d steric+chirality+conditions）+ ExtraTrees → TSCV=0.624
-- C: 3D syn/anti 方法揭示 CIP ≠ syn/anti（新化学发现，45.6% 一致率）
+**Story (A → B → C)**:
+- A: 手性辅基 aldol 立体选择性预测, 现有方法局限 (V3 KNN balanced=0.415)
+- B: 156d 物理化学特征 + ZT 过渡态图 (ZT-GNN), 严格 TSCV 评估
+- C: Evans ZT-Chiral TSCV=0.818, 全数据集 XGB=0.739; 3D syn/anti 揭示 CIP≠syn/anti (45.6%)
 
-**目标期刊**: JCIM / Digital Discovery / Nature Communications Chemistry
-**特色亮点**:
-- 可复现管线（13 步，代码全开源）
-- 泄漏检测方法论（DRFP 案例 + TSCV vs random split 对比）
-- 3D 二面角 syn/anti 确认（超出纯计算预测的化学发现）
+**目标期刊**: JCIM (首选) / Digital Discovery / JACS (如 ZT 扩展成功)
 
-#### P4.2 关键 Figure 规划
+#### P2.2 Figure 制作
 
-| Figure | 内容 | 状态 | 脚本 |
-|--------|------|------|------|
-| Fig 1 | 数据集描述（辅基 + 管线 + 类分布） | TODO | plot_dataset_stats.py |
-| Fig 2 | V4d benchmark 气泡图（TSCV + Scaffold + Grouped） | 数据已有 | plot_benchmark.py |
-| Fig 3 | SHAP 分析（128d feature importance × 4 class） | TODO | run_shap_analysis.py |
-| Fig 4 | 3D syn/anti 二面角分布 + CIP vs 3D 一致率 | 基础完成 | existing plots |
-| Fig 5 | V3 vs V4 公平对比（balanced acc + Evans-only） | 数据部分 | Evans baseline |
-| Supp 1 | 消融实验 complete table | 数据已有 | - |
-| Supp 2 | 错误分析 + 辅基分层 | TODO | run_error_analysis.py |
-| Supp 3 | RS-SynAnti 实验结果 + 根因分析 | 完成 | - |
+| Figure | 内容 | 数据状态 |
+|--------|------|----------|
+| Fig 1 | 数据集描述: 辅基分布 + 筛选漏斗 + 4-class 分布 | 数据已有, 需制图 |
+| Fig 2 | 模型 benchmark 气泡图 (Tree vs GNN vs MPNN) | 数据已有, 需制图 |
+| Fig 3 | ZT 过渡态图示意 + ZT-GNN vs Tree 对比 | 数据已有, 需制图 |
+| Fig 4 | SHAP 特征重要性 (top-20, 按 class 分层) | SHAP 已有, 需制图 |
+| Fig 5 | 3D syn/anti 二面角分布 + CIP vs 3D | 基础完成 |
+| Supp | 消融实验 + Per-aux 热图 + 错误分析 + 负面结果 | 数据已有 |
 
-#### P4.3 论文补充材料清单
-
-- [ ] 清洁后数据集 CSV（data/clean_v4/substrate_aldol_clean.csv，去除原始 Reaxys ID）
-- [ ] 特征工程完整代码（scripts/run_features_v4.py）
-- [ ] 最优模型权重文件（ExtraTrees pickle）
-- [ ] 3D 二面角计算代码（step08b 部分）
-- [ ] 完整 split 文件（splits_v4/）
-- [ ] V4d benchmark 原始预测 CSV（results/predictions_v4/）
+#### P2.3 论文补充材料
+- [ ] 清洁后数据集 CSV（去除原始 Reaxys ID）
+- [ ] 特征工程完整代码
+- [ ] 最优模型权重文件
+- [ ] 3D 二面角计算代码
+- [ ] 完整 split 文件 + benchmark 预测 CSV
 
 ---
 
-### 【P5 — 工程改进，长期维护】
+### 【P3 — 低优先级实验, 可作 future work】
 
-#### P5.1 一键运行脚本
+#### P3.1 Felkin-Anh/Zimmerman-Traxler syn/anti 特征
+- 当前特征与 syn/anti 正交 (r=0.083)
+- 需要全新的醛面选择性特征 (si/re 面区分, A^1,3 应变, Z/E 烯醇化物比例)
+- 可在论文 Discussion 中提出
 
-```bash
-# 新建 run_pipeline_v4.sh
-#!/bin/bash
-set -e
-echo "=== Step 1: Data Rebuild ==="
-conda run -n aldol-rxn python scripts/run_rebuild_v4.py
-echo "=== Step 2: Features ==="
-conda run -n aldol-rxn python scripts/run_features_v4.py
-echo "=== Step 3: Splits ==="
-conda run -n aldol-rxn python scripts/run_splits_v4.py
-echo "=== Step 4: MechAware ==="
-conda run -n aldol-rxn python scripts/run_mechaware_v4.py
-echo "=== Step 5: Benchmark ==="
-conda run -n aldol-rxn python scripts/run_all_models_v4.py
-echo "Done! Check results/tables/benchmark_v4.csv"
-```
+#### P3.2 Multi-conformer Sterimol
+- 单构象 → top-3 构象 Sterimol 平均/标准差
+- 预期提升小 (+0.01-0.02)
 
-#### P5.2 V3 代码修复归档（供参考）
-
-修复后的 V3 代码存放在 `v3_original/05_code_notebooks/.../aldol_predictor_fixed/`
-修复内容:
-1. `fingerprints.py:16` — 删除 `sys.setdefaultencoding`（Python 3 兼容）
-2. 标签编码统一 → 0/1（去除 ±1 混乱）
-3. stereo_class {0,1,4,5} → {0,1,2,3} 连续编码
-4. 添加 class_weight='balanced' 到 KNN 投票
-5. TSCV 4-fold 评估（按 Year 排序）
-6. 去除 augmented_enantiomer 数据泄漏
-
-#### P5.3 增量特征缓存验证
-
-```python
-# 验证构象缓存完整性
-import pickle, os
-cache_dir = 'data/features_v4/conformers/'
-for pkl in os.listdir(cache_dir):
-    with open(os.path.join(cache_dir, pkl), 'rb') as f:
-        ens = pickle.load(f)
-    assert isinstance(ens, dict), f"损坏: {pkl}"
-print("所有构象缓存完整")
-```
-
-#### P5.4 结果复现性保障
-
-```python
-# 在 run_all_models_v4.py 输出文件中记录环境
-import sklearn, platform
-meta = {
-    'sklearn_version': sklearn.__version__,
-    'python_version': platform.python_version(),
-    'TARGET_LABEL': TARGET_LABEL,
-    'timestamp': datetime.now().isoformat()
-}
-json.dump(meta, open('results/tables/run_meta.json', 'w'))
-```
+#### P3.3 V3 代码修复 (学术比较用)
+- 已有 V3 KNN balanced=0.415 的数字
+- 完整修复 V3 代码的投入产出比低
 
 ---
 
@@ -511,46 +269,48 @@ V3 Chemprop 的 simple accuracy 0.63-0.65 在转换为 balanced acc 后预计约
 
 ---
 
-## 数据和文件路径速查
+## 数据和文件路径速查 (V5)
 
 ```
 data/
   data.csv                       原始 Reaxys (134,027 行)
-  clean_v4/
-    substrate_aldol_clean.csv    (2334 行, 42 列)
-    evans_clean.csv              (1654 行, Evans 子集)
-    labels.csv                   (7 列: Ca/Cb/SA/joint/confidence/syn_anti_3d/joint_sa)
-  features_v4/
-    v4_features.csv              (2334 × 128d)
-    labels.csv                   (同上，特征目录副本)
-    v4_mechaware_bw.csv          (2334 × 112d)
-    v4_mechaware_full.csv        (2334 × 328d)
+  clean_v5/
+    substrate_aldol_clean.csv    (2434 行, 42 列, 9 种辅基)
+    evans_clean.csv              (1661 行, Evans 子集)
+    labels.csv                   (标签: Ca, Cb, SA, joint + 3D syn/anti)
+    condition_features.csv       (44d 条件特征)
+    audit/                       行级审计报告
+  features_v5/
+    v5_features.csv              (2427 × 156d 完整特征矩阵)
+    v5_features_spms.csv         (2427 × 172d SPMS 增强特征)
+    steric_features.csv          (34d 空间位阻特征)
+    mechaware_bw.csv             (BW 加权 MechAware 特征)
+    mechaware_full.csv           (完整 MechAware 特征)
+    labels.csv
     conformers/                  构象 pickle 缓存
-  splits_v4/
+    spms/                        SPMS 矩阵 + face map
+    zt_graphs/                   evans_zt_graphs.pkl
+  splits_v5/
     tscv_fold{1-4}.json          时间序列 CV（TSCV）
     scaffold.json                Murcko 骨架划分
-    grouped_seed{42,101,202,512,1024}.json  role-aware 分组
+    grouped_seed{42..1024}.json  role-aware 分组划分
+  clean_v4/, features_v4/        V4 历史数据 (保留，不再修改)
 results/
-  tables/
-    benchmark_v4.csv             V4d 汇总（11 models × 3 splits）
-    benchmark_v4_sa.csv          RS-SynAnti 实验（TSCV=0.423，存档）
-  predictions_v4/
-    v4b/                         v4b_full_{et,xgb,rf,lgbm}
-    mechaware/                   ma_{bw,full}_{xgb}
-    steric/                      steronly_xgb
-    ablation/                    no_chiral, chiral_only
-    baseline/                    cond_xgb, majority
-    sa_{v4b,mechaware,...}/      RS-SynAnti 实验（存档，勿删）
+  predictions_v5/
+    v4b/                         XGB/ET/RF/LGBM (156d)
+    mechaware/                   MechAware-BW/Full-XGB
+    steric/                      位阻-only
+    ablation/                    特征消融
+    baseline/                    多数类/条件
+    chemprop/                    Chemprop MPNN
+    zt_chemprop/                 ZT+Chemprop
+    zt_gnn/                      ZT-GIN/GAT/Chiral (+feat)
+    optuna/                      Optuna-tuned
+    spms/                        SPMS Tree 模型
+  optuna/                        Optuna 最优参数 JSON
+  tables/                        汇总表
+  shap/                          SHAP 分析
 v3_original/                    V3 原始文件（只读参考）
-  02_processed_datasets/
-    References_aldol-2/evans_aux.csv            (1293 行, Evans 原始)
-    References_aldol-3-substructure-2/data_final.csv (2680 行, V3全集)
-  03_final_training_prediction/Final/
-    aldol_prediction_results_transformer.csv    (200行测试, balanced=0.415)
-    metrics_summary.csv                         (accuracy=0.71)
-  05_code_notebooks/
-    .../aldol_predictor/fingerprints.py         (已修复 Python 3 兼容)
-    .../final-5-new-evans-seq.ipynb             (Chemprop TSCV 结果)
 ```
 
 ---
@@ -564,11 +324,11 @@ v3_original/                    V3 原始文件（只读参考）
 | V4 | 2025 | 2288 | 0.507 | +22% vs V3 | 84d 特征，ExtraTrees |
 | V4b | 2025 | 2288 | 0.565 | +11% | +手性(7d)+Rgroup(8d) |
 | V4c | 2025 | 2288 | 0.625 | +11% | +ChiralEnv(21d)+AldPri(8d)+MechAware |
-| V4d | 2026-05-27 | **2334** | 0.624 | ≈ V4c | +46行(保护OH)+3D syn/anti 标签 |
-| V4d-SA | 2026-05-27 | 2304 | 0.423 | — | RS-SynAnti 实验，已放弃 |
-| V4d Stacking | 2026-05-28 | 2334 | 0.617 | — | ET+XGB+MA-BW→LR，未提升 |
-| V4d Optuna (128d) | 2026-05-28 | 2334 | 0.666 | +6.7% | ma_bw_xgb_optuna (128d 参数) |
-| **V4d Optuna (153d)** | 2026-05-28 | **2334** | **0.657** | **+5.3%** | ma_bw_xgb (153d 重搜) |
-| Chemprop+Features | 2026-05-28 | 2334 | 0.626 | — | MPNN baseline, Grouped=0.789 |
-| Chemprop (纯SMILES) | 2026-05-28 | 2334 | 0.601 | — | MPNN 无手工特征 |
-| Evans-only ET | 2026-05-28 | 1654 | 0.710 | — | 辅基独立建模 |
+| V4d | 2026-05-27 | 2334 | 0.624 | ≈ V4c | +46行(保护OH)+3D syn/anti 标签 |
+| V4d Optuna (153d) | 2026-05-28 | 2334 | 0.657 | +5.3% | ma_bw_xgb (153d 重搜) |
+| **V5 default ET** | 2026-05-30 | **2427** | **0.677** | — | 10 种辅基, 156d |
+| **V5 Optuna XGB** | 2026-05-30 | **2427** | **0.739** | **+9.2%** | 200 trials, 全数据集冠军 |
+| V5 Chemprop+156d | 2026-05-30 | 2427 | 0.626 | — | MPNN baseline |
+| **V5 ZT-Chiral** | 2026-05-30 | **1661 Evans** | **0.818** | **+15.2%** | Evans-only GNN 冠军 |
+| V5 ZT-Chemprop+ZT | 2026-05-30 | 1661 Evans | 0.809 | — | MPNN + ZT 32d |
+| V5 MultiTS | 2026-06-05 | 1661 Evans | ~0.715 | — | 负面结果，已放弃 |

@@ -8,7 +8,7 @@
 - **辅基类型**: Evans (1661) + Crimmins thione (260) + Crimmins oxathione (169) + Oppolzer (141) + **Abiko (127)** + **Menthyl ester (32)** + **Oxazoline (21)** + **Myers (16)** + Other (7)
 - **VALID_AUXILIARIES**: 10 种（+6 vs V4），**2427 行** (vs V4 的 2215 行, +9.6%)
 - **冠军** (V5 Evans-only): **ZT-Chiral+feat** (ZT 图 + 156d global-feat), TSCV = **0.818**
-- **冠军** (V5 全数据集): **XGB Optuna** (156d), TSCV = **0.716**, Grouped = **0.760**
+- **冠军** (V5 全数据集): **XGB Optuna** (156d), TSCV = **0.739±0.074**, Grouped = **0.760**
 - **特征**: Steric(34d) + Conditions(44d) + Aux one-hot(9d) + Aux mechanistic(6d) + Chirality(7d) + R-group(7d) + ChiralEnv(21d) + AldPriority(8d) + DeltaChiral(16d) + ChiralDet(3d) + n_stereo(1d) = **156d**
 - **SPMS 特征**: 球面投影位阻 (16d stats) + Si/Re Face Map (24d)
 - **泄漏已排除**: DRFP 已确认标签泄漏（产物 @/@@ 编码答案），不再使用；手性特征仅从酮 SMILES 提取
@@ -154,8 +154,8 @@ step12 AuditOutput
 | 5 | ZT-Hybrid+feat | 0.776 | Evans-only |
 | 6 | ZT-GAT+feat | 0.753 | Evans-only |
 | 7 | ZT-GIN+feat | 0.731 | Evans-only |
-| 8 | XGB Optuna | 0.716 | 全数据集 |
-| 9 | ET Optuna | 0.715 | 全数据集 |
+| 8 | XGB Optuna | 0.739 | 全数据集 |
+| 9 | ET Optuna | 0.722 | 全数据集 |
 | 10 | XGB+face_map | 0.685 | 全数据集 |
 
 ## 脚本
