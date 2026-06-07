@@ -74,6 +74,27 @@
 
 **羰醇轴攻坚 (Phase B, 负结果, LESSONS L16)**: 4 个廉价杠杆均未通过 gold-test gate(Δ≥+0.01)——`+face_map(24d 真实构象面图)` 有害, `+SPMS(16d)` 混合, `+两阶段Cα→Cb` 与 `+显式醛CIP优先级` 在 full-test 显示虚假提升但 gold-test 蒸发。羰醇面选择需真实 TS 能量学(ΔΔG‡, xTB/qTS 已证失败), **0.82 确认为真上限**。脚本: `scripts/run_carbinol_gate.py`。
 
+### V5 特征有效性 / 标签消融（null-importance）(2026-06-07)
+
+**方法**: 三角度 × 三轴(Ca/Cb/joint)识别噪声特征。① **标签消融 (M1, null-importance)**: 打乱标签重训 30 次得每特征重要性的 null 分布，真重要性未显著高于 null(p>0.05)即噪声。② **gold-test permutation (M2)**: fold 内 permute 每列、测 gold(可信标签)子集 balanced-acc 跌幅，gold_drop≤0 即噪声。③ **整组消融 (M4, LOGO)**: 删整个特征组测 gold Δ。脚本: `scripts/run_feature_ablation.py` → `results/tables/feature_{null_importance,perm_importance,group_ablation}.csv` + `noise_feature_list.csv`。
+
+**核心发现：噪声是"轴条件性"的，特征集正交可分但全局不可剪。** 整组消融 gold_delta(负=该组有用)清楚显示两轴需要**互斥**的特征：
+
+| 特征组 | α轴(Ca) | 羰醇轴(Cb) | 4-class(joint) | 结论 |
+|---|---|---|---|---|
+| **steric**(42d) | **+0.0018** | **−0.1508** | **−0.1995** | α 的噪声 / 羰醇的命脉 |
+| **conditions**(44d) | **−0.0908** | **+0.0195** | −0.0595 | α 的命脉 / 羰醇的噪声 |
+| **aldpri**(8d) | −0.0075 | −0.0568 | −0.1054 | 羰醇/4-class 关键 |
+| chirality(10d) | −0.0058 | +0.0067 | −0.0172 | 羰醇的噪声 |
+| delta_chiral(19d) | −0.0094 | +0.0043 | −0.0084 | 羰醇的噪声 |
+| chiralenv(21d) | −0.0061 | −0.0134 | −0.0218 | 两轴弱有用 |
+| auxiliary(23d) | −0.0119 | −0.0037 | −0.0061 | α 略有用 |
+| rgroup(8d) | −0.0078 | −0.0024 | +0.0123 | 4-class 的噪声 |
+
+数据驱动复现 **Zimmerman-Traxler 图景**: **α 轴由条件+辅基控制(烯醇 Z/E 几何, 位阻是噪声)、羰醇轴由位阻+醛优先级控制(条件/手性是噪声)**——一个特征对一个轴是噪声、对另一个轴常是头号信号。M1/M2 top 信号一致佐证(Ca: `chiralenv_ket_*`/`chiral_aux_c4_R`/`feat_act_Bu2BOTf`; Cb/joint: `ald_pri_max_atomic_num`/`ald_pri_priority_proxy`/`ald_pri_alpha_branching`)。
+
+**剪枝验证(非破坏性) FAIL — 全局不可剪**: 保守 AND 判据(M1 且 M2 三轴皆噪声)仅得 4 个纯噪声特征(`Vbur_diff_std`/`feat_solvent_epsilon`/`aux_rg_phenyl`/`chiralenv_ald_n_heavy`)。剪掉后 gold: **Ca +0.0046、Cb +0.0121(单轴均改善)，但 4-class −0.0181(FAIL gate −0.005)**。即：连最噪的 4 个特征也**协同**携带 4-class 弱信号，单轴看是冗余、合起来对 joint 有用——再次印证 L15"数据量/聚合信号 > 局部纯度"。**结论：单一 4-class 模型几乎不可全局精简；但若拆成轴特异模型，可各删对侧一半(α 删 steric 42d +0.0018、Cb 删 conditions 44d +0.0195)，更简且略好。** 另: full-test 上有 6 个特征显示虚假重要性而 gold 无(如 `aux_oxazoline`/`feat_solvent_epsilon`)——L15/L16 的"评测噪声造假信号"第三次出现。
+
 ### V4d → V5 变化 (2215 → 2427 VALID 行)
 
 | 指标 | V4d (2215行, 154d) | V5 (2427行, 156d) | 变化 |

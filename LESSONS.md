@@ -212,3 +212,19 @@
 **教训**: 特征消融必须在**可信标签子集**上判增益。在含噪 full-test 上,任何与标签噪声结构相关的特征都会显示虚假提升(本例 4/4 杠杆全中招)。这是继 L15 之后第二次"评测噪声制造假信号"。
 
 **相关脚本**: `scripts/run_carbinol_gate.py`, `chiralaldol/ald_cip_priority.py`。
+
+## L17: 特征有效性 — 噪声是"轴条件性"的，特征集正交可分但全局不可剪 (2026-06-07)
+
+**背景**: 排查 156d 里哪些特征是噪声、可否精简。用三角度 × 三轴(Ca/Cb/joint): ① 标签消融 null-importance(打乱标签 30 次得 null 分布, p>0.05=噪声); ② gold-test permutation(gold_drop≤0=噪声); ③ 整组 LOGO 消融。脚本 `scripts/run_feature_ablation.py`。
+
+**核心发现**: 整组消融 gold_delta(负=有用)显示**两轴需要互斥的特征集**——
+- **steric(42d)**: α 是噪声(+0.0018)、羰醇命脉(−0.151)、4-class 命脉(−0.200)
+- **conditions(44d)**: α 命脉(−0.091)、羰醇是噪声(+0.0195)
+- **aldpri(8d)**: 羰醇/4-class 关键(−0.057/−0.105)
+即数据驱动复现 **Zimmerman-Traxler**: α←条件+辅基(烯醇 Z/E 几何)、羰醇←位阻+醛优先级。一个特征对一个轴是噪声、对另一个轴常是头号信号。
+
+**剪枝 gate FAIL — 全局不可剪**: 保守 AND(M1 且 M2 三轴皆噪声)仅 4 个纯噪声特征(`Vbur_diff_std`/`feat_solvent_epsilon`/`aux_rg_phenyl`/`chiralenv_ald_n_heavy`)。剪掉后单轴改善(Ca +0.0046、Cb +0.0121)但 **4-class −0.0181(FAIL)**——连最噪 4 特征也**协同**携带 joint 弱信号。再次印证 L15"聚合信号 > 局部纯度"。
+
+**教训**: ①"噪声特征"不是绝对属性，必须**按目标轴**判定——全局删特征会误伤跨轴协同信号。② 想精简只能走**轴特异模型**(α 删 steric、羰醇删 conditions)，不能动 4-class 全局特征集。③ null-importance(标签消融)是识别高基数连续特征过拟合诱饵的利器: `feat_yield_pct/time_h/temperature_c` 与醛整体位阻 `ald_B1/B5/L_mean` 在 α 上 real 重要性低于整个 null 带(p=1.0)。④ full-test 又一次造假信号(6 个特征 full 重要、gold 不重要)。
+
+**相关脚本/产物**: `scripts/run_feature_ablation.py`, `results/tables/feature_null_importance.csv`, `feature_perm_importance.csv`, `feature_group_ablation.csv`, `noise_feature_list.csv`。
