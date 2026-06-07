@@ -2,8 +2,9 @@
 
 基于底物控制（手性辅基）的 aldol 反应 4-class 立体化学预测。
 
-## 当前状态 (2026-06-05)
+## 当前状态 (2026-06-07)
 
+- **诚实按轴评测 (2026-06-07)**: 4-class CIP ≈ **α轴 × 羰醇轴**。gold-test(可信标签)上 **α(Ca)~0.94 / 羰醇(Cb)~0.82 / 4-class~0.79**。α 误差大半是评测标签噪声(模型已学对)；**羰醇轴是真实化学瓶颈**(gold≈non-gold)。机理重标注/标签去噪均证否(见 LESSONS L14/L15)。冲 90% 需两轴都>0.95，羰醇受限~0.82。详见 RESULTS.md 诚实评测节。
 - **数据**: V5 管线从 134K Reaxys 原始数据重建，**2434 行**（9 种辅基类型 + 7 other）
 - **辅基类型**: Evans (1661) + Crimmins thione (260) + Crimmins oxathione (169) + Oppolzer (141) + **Abiko (127)** + **Menthyl ester (32)** + **Oxazoline (21)** + **Myers (16)** + Other (7)
 - **VALID_AUXILIARIES**: 10 种（+6 vs V4），**2427 行** (vs V4 的 2215 行, +9.6%)

@@ -130,3 +130,85 @@
 **问题**: `conda run` 缓冲 stdout，导致 `.output` 文件或 tee 管道为空。
 **修复**: 用 `--no-capture-output` 标志，或直接写入 log 文件（logging 模块写 FileHandler）。
 **教训**: 后台任务必须用独立 log 文件，不要依赖 stdout 重定向。
+
+## L14: 90% 天花板根因实证 — 4-class = 两轴乘积 + syn_anti_3d 是噪声 (2026-06-07)
+
+**背景**: 深度审查后假设"4-class CIP 是被取代基优先级污染的错误坐标系"，计划用机理坐标系（syn/anti × 面）重标注后映射回 CIP 来突破 0.82。用廉价 gate 实证后**假设被推翻**，但揭示了真正的天花板结构。
+
+**实证结果**（ExtraTrees, Evans-only, n_test 加权 TSCV / Grouped）:
+| 目标 | TSCV_w | Grouped | Majority | lift |
+|---|---|---|---|---|
+| label_joint (4-class CIP) | 0.762 | 0.737 | 0.25 | 0.51 |
+| label_Ca (α中心) | **0.883** | **0.894** | 0.50 | 0.38 |
+| label_Cb (羰醇) | 0.817 | 0.815 | 0.50 | 0.32 |
+| label_SA (Ca==Cb 对) | 0.833 | 0.830 | 0.50 | 0.33 |
+| label_syn_anti_3d | **0.600** | **0.525** | 0.50 | **0.025** |
+
+**三个铁证**:
+1. **`label_syn_anti_3d` 是噪声**: 强模型 grouped lift 仅 0.025。step08b 单构象 ETKDG+MMFF 二面角法产出的 syn/anti 与真实立体化学近乎统计独立（MCC(syn_anti_3d, Ca==Cb)=-0.036）。**不可作预测目标或特征**。机理 syn/anti 重标注方案因此破产。
+2. **机理→CIP 映射非单射**: `(辅基, 辅基手性, Z/E, syn_anti_3d) → label_joint` 反演纯度仅 0.50（Evans）。注：Z/E 在本数据集 100% 主导 Z（所有 activator/base 都 ≥0.5 Z），该轴零判别力。
+3. **因式分解无增益**: (Ca, SA) 双头重构 4-class = 0.757 vs 直接 4-class = 0.762，**持平**。换标签编码不解锁 0.90。
+
+**根因结论**: 4-class CIP 准确率 ≈ α轴(0.88) × 羰醇轴(0.82) ≈ 0.76。要冲 0.90 需两轴**都** >0.95。
+- α 中心（辅基控制）已接近 0.90，其 ~12% 误差大概率是可回收的标签噪声（atom-mapping 错 + Reaxys 矛盾记录）。
+- 羰醇轴本质受限 ~0.82（真实面选择难度 + 醛优先级污染 + 标签噪声）。
+- **现有冠军 ZT-Chiral 0.818 已基本到顶**。
+
+**唯一可能上移天花板的杠杆**（均非标签重编码）:
+- (A) 标签去噪：清 α 轴的 ~12% 噪声 → Ca 向 0.93+，4-class 向 0.84-0.85。**最高置信**。
+- (B) 改进羰醇面选择化学（真实 TS 构象替代理想模板）——增益有限。
+- (C) 若需 syn/anti，必须重算（多构象 Boltzmann 或从产物几何解析推导），单构象法已坏。
+- (D) 诚实按轴报告：α 立体诱导 ~89% 已近 90%，羰醇轴 ~82% 是瓶颈。
+
+**教训**: 在投入昂贵重标注前，先用 ExtraTrees + 现成 split 跑"每个标签轴的可学性"廉价 gate（~1 分钟/目标）。它能在 1 小时内证伪一个否则要花数周的方向。`label_syn_anti_3d` 这类"已算好但从未验证"的标签必须先测 lift 再用。
+
+**相关脚本**: `scripts/analyze_mech_to_cip.py`(反演), `scripts/diag_label_structure.py`(轴结构), `scripts/run_validation_targets.py`(可学性), `scripts/diag_factorize_combine.py`(因式分解)。
+
+## L15: 标签去噪 gate FAIL — 12% α误差大半是评测噪声，非可修训练噪声 (2026-06-07)
+
+**背景**: L14 发现 α 轴(label_Ca)只 0.88，疑似 ~12% 可回收标签噪声。设计 broad-SMARTS 交叉校验 + Type A 矛盾仲裁去噪流水线，gate 先行。
+
+**D0 实证**（`scripts/build_denoised_labels.py` + `run_denoise_gate.py`）:
+1. **broad-SMARTS 交叉校验 CIP：cip_disagree = 0**。独立 SMARTS 重定位 ca/cb 重算 CIP，与现存 label_Ca/Cb **每行一致**（99.1% agree, 0.9% 无法定位）。**"1583 medium-conf 行有静默指错原子"假设被推翻——CIP 提取干净，无错可修**。重跑 atom-mapping 更无意义。
+2. **Type A 矛盾（同底物+同条件→不同 label_joint）= 214 行**（Ca 在 204 行翻转）；Type B（条件不同）= 240 行保留。
+3. **决定性测量**（固定 gold holdout = high-mapconf ∧ ¬TypeA ∧ cip_agree，Evans 551 行）:
+
+| label_Ca, test=gold | TSCV_w |
+|---|---|
+| 含噪训练 | 0.9295 |
+| 去 TypeA 训练 | 0.9366 (Δ**+0.007**) |
+| gold 训练（上限） | 0.9433 |
+
+**核心结论**:
+- **α 轴在可信标签上已 ~0.94**，之前的 0.88 大半是**评测 test 集的标签噪声**（~6% test 行标签本身错，模型对了被判错）。**模型不缺，缺的是干净的评测标签**。
+- **去 214 行 Type A 训练仅 +0.007**；4-class 仅 +0.003。训练噪声不是瓶颈。
+- **只用 gold 训练 4-class 反而 0.79→0.65**（数据量骤减）→ **删数据有害，数据量 > 标签纯度**。
+- Gate FAIL（Δ+0.007 < +0.02 阈值）→ **不做 D1 去噪重标注**。
+
+**两个有价值的副产物**:
+1. 现有报告数字被 test 标签噪声压低：可信标签上 α~0.94、4-class~0.79-0.80（vs 含噪测 0.818/0.762）。建议评测协议增报"gold-test 子集准确率"。
+2. α 立体诱导 ~94% 可预测，瓶颈确定是羰醇/相对构型轴的真实化学（~0.82），非标签问题。
+
+**教训**: "标签噪声"要区分**训练噪声**（去之提升模型）vs**评测噪声**（压低指标但模型已学对）。本例是后者——用固定 gold holdout 一测便知。去噪前必须先证明是训练噪声且去之有效，否则白费。删数据几乎总是有害（数据量为王）。
+
+**相关脚本**: `scripts/build_denoised_labels.py`(交叉校验+矛盾分类), `scripts/run_denoise_gate.py`(gold holdout 测量)。
+
+## L16: 羰醇轴(Cb) gate FAIL — 真实化学天花板,非特征缺口 (2026-06-07)
+
+**背景**: L15 锁定羰醇轴(Cb~0.82)是 4-class 瓶颈且 gold≈non-gold(真实难度)。Phase B 用廉价杠杆攻它,gold-test(可信标签)上判 Δ≥+0.01。
+
+**四杠杆实证**（`scripts/run_carbinol_gate.py` + `chiralaldol/ald_cip_priority.py`,ExtraTrees,gold-test）:
+| 杠杆 | Evans Cb gold Δ | Evans joint gold Δ | all Cb gold Δ |
+|---|---|---|---|
+| +face_map(24d,真实构象 Si/Re 面图) | -0.010 | -0.020 | -0.007 |
+| +SPMS(16d,球面投影) | +0.004 | -0.025 | +0.009 |
+| +CaOOF(两阶段 Cα→Cb) | -0.009 | -0.001 | +0.010 |
+| +aldcip(显式醛 CIP 优先级解耦) | -0.002 | -0.001 | +0.003 |
+
+**全部 FAIL**（gold Δ < +0.01 稳定通过）。**核心规律**: 每个杠杆都在 **full-test 显示提升**（如 +CaOOF Evans joint full +0.014、aldcip full +0.017），但 **gold-test 上全部蒸发/转负**——说明这些"提升"是在**拟合 test 标签噪声**，干净标签上无真增益。**gold-test gate 正是用来过滤这种虚假增益的**。
+
+**结论**: 羰醇轴 ~0.82 是**真实化学天花板**,非特征缺口。连专为面选择设计的**真实构象 face_map/SPMS** 都帮不上 → 羰醇面选择需要的是**真实 TS 能量学(ΔΔG‡)**,而 xTB(-35%)/qTS(-20%)已证失败、dr=0% 排除从数据学软标签。**4-class 0.82 是数据/标签/描述符支持的真上限。Phase B 收束,不做 B1/B2。**
+
+**教训**: 特征消融必须在**可信标签子集**上判增益。在含噪 full-test 上,任何与标签噪声结构相关的特征都会显示虚假提升(本例 4/4 杠杆全中招)。这是继 L15 之后第二次"评测噪声制造假信号"。
+
+**相关脚本**: `scripts/run_carbinol_gate.py`, `chiralaldol/ald_cip_priority.py`。

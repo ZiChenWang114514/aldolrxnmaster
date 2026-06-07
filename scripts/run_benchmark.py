@@ -5,12 +5,14 @@ Usage:
     conda run -n aldol-rxn python scripts/run_benchmark.py
 """
 
+import argparse
 import logging
 import time
+from functools import partial
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef
+from sklearn.metrics import balanced_accuracy_score, matthews_corrcoef, top_k_accuracy_score
 
 from chiralaldol.config import PRED_DIR, RESULTS_DIR, TARGET_LABEL
 from chiralaldol.data_io import load_mechaware_bw, load_mechaware_full, load_splits, prepare_Xy, save_predictions
@@ -27,20 +29,25 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("benchmark_v4")
 
 
-def main():
+def main(target=None, tag=None):
     t0 = time.time()
+    target = target or TARGET_LABEL
+    tag = tag or "v4"
     logger.info("=" * 70)
-    logger.info("V4 Model Benchmark")
+    logger.info(f"V4 Model Benchmark  (target={target}, tag={tag})")
     logger.info("=" * 70)
 
-    X_all, y_raw, valid_mask, feat_names = prepare_Xy()
-    logger.info(f"Target: {TARGET_LABEL}")
+    X_all, y_raw, valid_mask, feat_names = prepare_Xy(target_label=target)
+    logger.info(f"Target: {target}")
     logger.info(f"Data: {len(y_raw)} total rows, {valid_mask.sum()} valid, {X_all.shape[1]} features")
 
     y = np.where(valid_mask, y_raw, -1).astype(int)
     y_valid = y[valid_mask]
     n_classes = len(np.unique(y_valid))
     logger.info(f"Classes: {n_classes}, dist: {dict(zip(*np.unique(y_valid, return_counts=True)))}")
+
+    # Retarget XGB's num_class without touching global N_CLASSES (enables 2-class experiments)
+    _xgb = partial(train_xgb, n_classes=n_classes)
     splits = load_splits()
     logger.info(f"Loaded {len(splits)} splits")
 
@@ -55,20 +62,20 @@ def main():
     # Model registry: (category, feature_loader, trainer)
     MODELS = {
         # === V4b: with chirality + rgroup + chiralenv features ===
-        "v4b_full_xgb":        ("v4b",       lambda X, y, fn: X,                                           train_xgb),
+        "v4b_full_xgb":        ("v4b",       lambda X, y, fn: X,                                           _xgb),
         "v4b_full_lgbm":       ("v4b",       lambda X, y, fn: X,                                           train_lgbm),
         "v4b_full_rf":         ("v4b",       lambda X, y, fn: X,                                           train_rf),
         "v4b_full_et":         ("v4b",       lambda X, y, fn: X,                                           train_et),
-        "v4b_condaux_xgb":     ("v4b",       lambda X, y, fn: select_features(X, fn, include=["conditions", "auxiliary", "chirality", "rgroup"]), train_xgb),
+        "v4b_condaux_xgb":     ("v4b",       lambda X, y, fn: select_features(X, fn, include=["conditions", "auxiliary", "chirality", "rgroup"]), _xgb),
         # === ablation ===
-        "v4b_chiral_only_xgb": ("ablation",  lambda X, y, fn: select_features(X, fn, include="chirality"), train_xgb),
-        "v4b_no_chiral_xgb":   ("ablation",  lambda X, y, fn: select_features(X, fn, exclude=["chirality", "rgroup", "chiralenv", "aldpri"]), train_xgb),
+        "v4b_chiral_only_xgb": ("ablation",  lambda X, y, fn: select_features(X, fn, include="chirality"), _xgb),
+        "v4b_no_chiral_xgb":   ("ablation",  lambda X, y, fn: select_features(X, fn, exclude=["chirality", "rgroup", "chiralenv", "aldpri"]), _xgb),
         # === MechAware + V4b features ===
-        "ma_full_xgb":         ("mechaware", lambda X, y, fn: X_ma_full,                                   train_xgb),
-        "ma_bw_xgb":           ("mechaware", lambda X, y, fn: X_ma_bw,                                     train_xgb),
+        "ma_full_xgb":         ("mechaware", lambda X, y, fn: X_ma_full,                                   _xgb),
+        "ma_bw_xgb":           ("mechaware", lambda X, y, fn: X_ma_bw,                                     _xgb),
         # === original V4 baselines ===
-        "steronly_xgb":        ("steric",    lambda X, y, fn: select_features(X, fn, include="steric"),     train_xgb),
-        "cond_xgb":            ("baseline",  lambda X, y, fn: select_features(X, fn, include="conditions"), train_xgb),
+        "steronly_xgb":        ("steric",    lambda X, y, fn: select_features(X, fn, include="steric"),     _xgb),
+        "cond_xgb":            ("baseline",  lambda X, y, fn: select_features(X, fn, include="conditions"), _xgb),
         "majority":            ("baseline",  lambda X, y, fn: X,                                           lambda Xtr, ytr, Xv, yv: MajorityClassifier().fit(Xtr, ytr)),
     }
 
@@ -80,7 +87,7 @@ def main():
         X = feat_loader(X_all, y, feat_names)
         logger.info(f"  Features: {X.shape[1]}d")
 
-        out_dir = PRED_DIR / category
+        out_dir = PRED_DIR / category if tag == "v4" else PRED_DIR / category / tag
         out_dir.mkdir(parents=True, exist_ok=True)
 
         for split_name, split_data in splits.items():
@@ -111,12 +118,27 @@ def main():
             bal_acc = balanced_accuracy_score(y[te], y_pred)
             mcc = matthews_corrcoef(y[te], y_pred)
 
+            # top-2 accuracy (4-class only; degenerate for 2-class)
+            if n_classes > 2:
+                top2 = top_k_accuracy_score(y[te], y_prob, k=2, labels=list(range(n_classes)))
+            else:
+                top2 = np.nan
+            # pair accuracy: project 4-class CIP prediction onto the Ca==Cb axis
+            if n_classes == 4:
+                pair_true = (y[te] // 2 == y[te] % 2).astype(int)
+                pair_pred = (y_pred // 2 == y_pred % 2).astype(int)
+                pair_acc = balanced_accuracy_score(pair_true, pair_pred)
+            else:
+                pair_acc = np.nan
+
             save_predictions(out_dir / f"{model_key}_{split_name}.csv",
                             te, y[te], y_pred, y_prob, n_classes)
 
             all_results.append({
                 "model": model_key, "category": category, "split": split_name,
                 "bal_acc": round(bal_acc, 4), "mcc": round(mcc, 4),
+                "top2": round(top2, 4) if not np.isnan(top2) else np.nan,
+                "pair_acc": round(pair_acc, 4) if not np.isnan(pair_acc) else np.nan,
                 "n_train": len(tr), "n_test": len(te),
             })
 
@@ -135,7 +157,7 @@ def main():
 
     # Save results table
     results_df = pd.DataFrame(all_results)
-    table_path = RESULTS_DIR / "tables" / "benchmark_v4.csv"
+    table_path = RESULTS_DIR / "tables" / f"benchmark_{tag}.csv"
     table_path.parent.mkdir(parents=True, exist_ok=True)
     results_df.to_csv(table_path, index=False)
     logger.info(f"\nSaved results to {table_path}")
@@ -149,14 +171,23 @@ def main():
         mr = [r for r in all_results if r["model"] == model_key]
         if not mr:
             continue
-        tscv = [r["bal_acc"] for r in mr if "tscv" in r["split"]]
+        tscv_r = [r for r in mr if "tscv" in r["split"]]
+        tscv = [r["bal_acc"] for r in tscv_r]
+        tscv_w = [r["n_test"] for r in tscv_r]
         grouped = [r["bal_acc"] for r in mr if "grouped" in r["split"]]
         scaffold = [r["bal_acc"] for r in mr if "scaffold" in r["split"]]
+        # n_test-weighted TSCV mean (fixes fold4 n=75 over-weighting)
+        tscv_wmean = np.average(tscv, weights=tscv_w) if tscv else float("nan")
+        top2 = [r["top2"] for r in tscv_r if not pd.isna(r["top2"])]
+        pair = [r["pair_acc"] for r in tscv_r if not pd.isna(r["pair_acc"])]
         cat = mr[0]["category"]
         summary_rows.append({
             "model": model_key,
             "category": cat,
-            "TSCV": f"{np.mean(tscv):.3f}±{np.std(tscv):.3f}" if tscv else "---",
+            "TSCV_wmean": f"{tscv_wmean:.3f}" if tscv else "---",
+            "TSCV_mean": f"{np.mean(tscv):.3f}±{np.std(tscv):.3f}" if tscv else "---",
+            "top2": f"{np.mean(top2):.3f}" if top2 else "---",
+            "pair_acc": f"{np.mean(pair):.3f}" if pair else "---",
             "Scaffold": f"{scaffold[0]:.3f}" if scaffold else "---",
             "Grouped": f"{np.mean(grouped):.3f}±{np.std(grouped):.3f}" if grouped else "---",
         })
@@ -169,4 +200,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--target", default=None,
+                    help="label column in labels.csv (default: config.TARGET_LABEL)")
+    ap.add_argument("--tag", default=None,
+                    help="output tag; isolates table/pred dir (default: v4)")
+    args = ap.parse_args()
+    main(target=args.target, tag=args.tag)

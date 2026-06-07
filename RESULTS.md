@@ -49,6 +49,31 @@
 
 **负面结果**: MultiTS (多 TS 注意力, 未完成): fold1-2 估计 ~0.715, 远低于 ZT-Chiral 0.818。额外的多 TS 构象注意力机制未带来提升。
 
+### V5 按轴分解 + Gold-Test 诚实评测 (2026-06-07)
+
+**核心结论**: 4-class CIP 准确率 ≈ **α轴 × 羰醇轴** 的乘积。三层廉价 gate 实证（详见 `LESSONS.md` L14/L15）锁定真天花板结构——
+- **α 中心 (label_Ca, 辅基控制)** 在可信标签上 ≈ **0.93–0.96**，已近其噪声上限；现报 0.88 大半是**评测 test 集的标签噪声**（~6% test 行标签本身错/矛盾，模型对了被判错）。
+- **羰醇中心 (label_Cb, 醛面选择)** ≈ **0.82–0.83**，是真正的瓶颈。
+- 机理坐标系重标注、标签去噪均被证否（`label_syn_anti_3d` 是噪声，grouped lift 仅 0.025；broad-SMARTS 交叉校验 CIP **零分歧**；去 214 行 Type A 矛盾仅 +0.007；删数据有害——数据量 > 标签纯度）。
+
+**Gold-test 评测协议**: gold = 高 mapping-confidence ∧ 非 Type A 矛盾 ∧ broad-SMARTS CIP 一致（可信标签子集）。同一 ExtraTrees 模型在 full / gold / non-gold 三个 test 子集上评测，分离"标签噪声压低指标"与"分子更易"的选择效应。
+
+| Scope | 轴 | split | full | **gold** | non-gold | 读法 |
+|---|---|---|---|---|---|---|
+| Evans | Ca (α) | grouped | 0.894 | **0.963** | 0.865 | gold≫non-gold → 误差主要是标签噪声 |
+| Evans | Cb (羰醇) | grouped | 0.815 | **0.833** | 0.808 | gold≈non-gold → **真实化学瓶颈,非标签伪影** |
+| Evans | SA (主产物对) | tscv | 0.833 | 0.836 | 0.829 | — |
+| Evans | joint (4-class) | tscv | 0.762 | **0.793** | 0.740 | =两轴乘积 |
+| 全数据集 | Ca (α) | grouped | 0.864 | **0.932** | 0.836 | α 全集亦 ~0.93 |
+| 全数据集 | Cb (羰醇) | grouped | 0.791 | 0.827 | 0.776 | 瓶颈一致 |
+| 全数据集 | joint | grouped | 0.729 | 0.776 | 0.705 | — |
+
+**Evans joint gold-test 混淆矩阵** (行=真, 列=预测, 序 RR/RS/SR/SS): `[[84,43,6,1],[3,157,4,2],[5,1,131,4],[9,8,19,69]]` — RS/SR(Ca≠Cb) recall 0.93–0.95，RR/SS(Ca==Cb) 仅 0.63–0.66，主错在 Cb。
+
+**诚实边界**: 现有冠军 ZT-Chiral 0.818 基本到顶；4-class 冲 90% 需两轴**都** >0.95，而羰醇轴受真实化学限制 ~0.82。可发表叙事："底物控制的 α-立体诱导可达 ~94%，相对构型(羰醇)轴是预测瓶颈"。脚本: `scripts/run_honest_eval.py` → `results/tables/honest_axis_eval.csv`。
+
+**羰醇轴攻坚 (Phase B, 负结果, LESSONS L16)**: 4 个廉价杠杆均未通过 gold-test gate(Δ≥+0.01)——`+face_map(24d 真实构象面图)` 有害, `+SPMS(16d)` 混合, `+两阶段Cα→Cb` 与 `+显式醛CIP优先级` 在 full-test 显示虚假提升但 gold-test 蒸发。羰醇面选择需真实 TS 能量学(ΔΔG‡, xTB/qTS 已证失败), **0.82 确认为真上限**。脚本: `scripts/run_carbinol_gate.py`。
+
 ### V4d → V5 变化 (2215 → 2427 VALID 行)
 
 | 指标 | V4d (2215行, 154d) | V5 (2427行, 156d) | 变化 |

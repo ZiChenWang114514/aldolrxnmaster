@@ -11,8 +11,12 @@ from sklearn.utils.class_weight import compute_sample_weight
 from .config import N_CLASSES, N_JOBS
 
 
-def train_xgb(X_tr, y_tr, X_val=None, y_val=None, n_jobs=N_JOBS):
-    """XGBoost with 3-config grid search (balanced sample weights)."""
+def train_xgb(X_tr, y_tr, X_val=None, y_val=None, n_jobs=N_JOBS, n_classes=N_CLASSES):
+    """XGBoost with 3-config grid search (balanced sample weights).
+
+    n_classes lets callers retarget to non-4-class problems (e.g. 2-class
+    validation experiments) without touching the global N_CLASSES.
+    """
     sw = compute_sample_weight("balanced", y_tr)
     configs = [
         {"n_estimators": 200, "max_depth": 5, "learning_rate": 0.1,
@@ -22,22 +26,24 @@ def train_xgb(X_tr, y_tr, X_val=None, y_val=None, n_jobs=N_JOBS):
         {"n_estimators": 150, "max_depth": 4, "learning_rate": 0.15,
          "subsample": 0.9, "colsample_bytree": 0.8},
     ]
+    # Multiclass needs explicit softprob+num_class; binary lets XGB pick
+    # binary:logistic (forcing multi:softprob on 2-class breaks predict()).
+    obj = ({"objective": "multi:softprob", "num_class": n_classes}
+           if n_classes > 2 else {})
+    common = {**obj, "tree_method": "hist", "random_state": 42, "n_jobs": n_jobs,
+              "verbosity": 0, "gamma": 0.1, "reg_lambda": 1.0}
 
     if X_val is None:
         # No validation set — use first config only (for stacking etc.)
         cfg = configs[0].copy()
-        cfg.update({"objective": "multi:softprob", "num_class": N_CLASSES,
-                    "tree_method": "hist", "random_state": 42, "n_jobs": n_jobs,
-                    "verbosity": 0, "gamma": 0.1, "reg_lambda": 1.0})
+        cfg.update(common)
         m = xgb.XGBClassifier(**cfg)
         m.fit(X_tr, y_tr, sample_weight=sw)
         return m
 
     best_m, best_acc = None, 0
     for cfg in configs:
-        cfg.update({"objective": "multi:softprob", "num_class": N_CLASSES,
-                    "tree_method": "hist", "random_state": 42, "n_jobs": n_jobs,
-                    "verbosity": 0, "gamma": 0.1, "reg_lambda": 1.0})
+        cfg.update(common)
         m = xgb.XGBClassifier(**cfg)
         m.fit(X_tr, y_tr, sample_weight=sw)
         acc = balanced_accuracy_score(y_val, m.predict(X_val))
