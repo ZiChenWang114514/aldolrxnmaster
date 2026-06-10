@@ -776,6 +776,54 @@ def _parse_evans_reaction(ketone_smi, aldehyde_smi, activator=""):
     }
 
 
+def _compute_face_steric_4d(ring_pos, sub_pos, center_idx):
+    """Compute 4d face steric features for a stereocenter in the ZT ring.
+
+    Uses the ring plane normal to separate substituent atoms into si-face
+    (above ring plane) and re-face (below). Returns normalized blocking
+    fractions and asymmetry.
+
+    Args:
+        ring_pos: (6, 3) ring atom coordinates
+        sub_pos: (n_sub, 3) substituent atom positions
+        center_idx: ring atom index (3=C_ALPHA, 4=C_ALDEHYDE)
+
+    Returns:
+        [si_frac, re_frac, asymmetry, max_clash] as list of 4 floats
+    """
+    from .face_steric_map import compute_ring_normal
+
+    if len(sub_pos) == 0:
+        return [0.0, 0.0, 0.0, 0.0]
+
+    normal = compute_ring_normal(ring_pos)
+    center = ring_pos[center_idx]
+
+    diff = sub_pos - center
+    proj = diff @ normal  # signed distance along normal
+    dist_to_center = np.linalg.norm(diff, axis=1)
+
+    # Effective blocking weighted by proximity (closer = more blocking)
+    effective_block = 1.0 / (dist_to_center + 0.5)
+
+    si_mask = proj > 0
+    re_mask = ~si_mask
+
+    si_blocked = float(effective_block[si_mask].sum()) if si_mask.any() else 0.0
+    re_blocked = float(effective_block[re_mask].sum()) if re_mask.any() else 0.0
+
+    total = si_blocked + re_blocked + 1e-8
+    si_frac = si_blocked / total
+    re_frac = re_blocked / total
+    asymmetry = abs(si_frac - re_frac)
+
+    # Max clash: minimum clearance from substituent to center
+    min_clearance = float((dist_to_center - 1.70).min())  # 1.70 = C vdW radius
+    max_clash = max(0.0, min(-min_clearance / 3.0, 1.0))
+
+    return [si_frac, re_frac, asymmetry, max_clash]
+
+
 def _build_single_ts(ts_type, parsed, metal_props, effective_metal):
     """Build a single ZT graph for one TS type with 28d node / 8d edge features."""
     from .zt_3d_coords import _build_chair_ring_3d, _place_substituent_3d
@@ -905,6 +953,23 @@ def _build_single_ts(ts_type, parsed, metal_props, effective_metal):
         if aux_n:
             d = "equatorial" if r1_axial else "axial"
             pos[aux_off:aux_off + aux_n] = _place_substituent_3d(ring_coords, 3, aux_n, d)
+
+    # --- Face steric features for stereocenters [21:25] ---
+    if n_nodes > 6:
+        ring_pos = pos[:6]
+        r1_n = len(r1_atoms)
+        rald_n = len(r_ald_atoms)
+        aux_n = len(aux_sub_atoms)
+        # C_ALPHA (node 3): blocked by R1 + auxiliary substituents
+        ca_sub_indices = list(range(6, 6 + r1_n)) + list(range(6 + r1_n + rald_n, 6 + r1_n + rald_n + aux_n))
+        if ca_sub_indices:
+            ca_face = _compute_face_steric_4d(ring_pos, pos[ca_sub_indices], center_idx=3)
+            nodes[3][21:25] = ca_face
+        # C_ALDEHYDE (node 4): blocked by R_ald
+        rald_indices = list(range(6 + r1_n, 6 + r1_n + rald_n))
+        if rald_indices:
+            cb_face = _compute_face_steric_4d(ring_pos, pos[rald_indices], center_idx=4)
+            nodes[4][21:25] = cb_face
 
     # --- Edge features (8d) ---
     edge_features = []

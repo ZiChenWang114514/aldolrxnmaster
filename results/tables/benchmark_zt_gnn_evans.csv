@@ -1,5 +1,5 @@
 model,split,bal_acc,n_train,n_test
-MultiTS,tscv_fold1,0.6525,710,603
-MultiTS,tscv_fold2,0.8018,909,399
-MultiTS,tscv_fold3,0.8613,1093,180
-MultiTS,tscv_fold4,0.796,1291,75
+MultiTS,tscv_fold1,0.7634,710,603
+MultiTS,tscv_fold2,0.8093,909,399
+MultiTS,tscv_fold3,0.7344,1093,180
+MultiTS,tscv_fold4,0.7909,1291,75

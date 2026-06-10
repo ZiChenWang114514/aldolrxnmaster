@@ -419,6 +419,8 @@ def main():
     parser.add_argument("--no-global-feat", action="store_true")
     parser.add_argument("--use-ze-prior", action="store_true", default=False)
     parser.add_argument("--no-ze-prior", dest="use_ze_prior", action="store_false")
+    parser.add_argument("--use-pairwise", action="store_true", default=True)
+    parser.add_argument("--no-pairwise", dest="use_pairwise", action="store_false")
     parser.add_argument("--use-aux-loss", action="store_true")
     parser.add_argument("--aux-loss-weight", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
@@ -480,6 +482,7 @@ def main():
                         "n_classes": 4, "dropout": 0.3,
                         "global_feat_dim": global_feat_dim,
                         "use_ze_prior": args.use_ze_prior,
+                        "use_pairwise": args.use_pairwise,
                     },
                     ts_sets=ts_sets, orig_indices=orig_indices,
                     y=y_all, combined_mask=combined_mask,

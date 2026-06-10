@@ -463,10 +463,11 @@ class MultiTSAttentionScorer(nn.Module):
 
     def __init__(self, node_dim=28, edge_dim=8, hidden_dim=128,
                  n_layers=4, n_classes=4, dropout=0.2, global_feat_dim=0,
-                 use_ze_prior=False, **kwargs):
+                 use_ze_prior=False, use_pairwise=True, **kwargs):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.use_ze_prior = use_ze_prior
+        self.use_pairwise = use_pairwise
 
         # Same encoder as ZT-Chiral: ChiralMessagePassing (not Enhanced)
         self.node_embed = nn.Linear(node_dim, hidden_dim)
@@ -491,6 +492,16 @@ class MultiTSAttentionScorer(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(hidden_dim // 2, 1),
         )
+
+        # Pairwise TS comparison: learns relative TS stability
+        if use_pairwise:
+            self.pair_mlp = nn.Sequential(
+                nn.Linear(readout_dim * 3, hidden_dim),  # [h_i, h_j, h_i - h_j]
+                nn.ReLU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden_dim, 1),
+            )
+
         self.temperature = nn.Parameter(torch.tensor(1.0))
 
         # Classifier: aggregated TS embedding + optional global features
@@ -539,8 +550,39 @@ class MultiTSAttentionScorer(nn.Module):
             batch.node_type, batch.batch,
         )  # (n_graphs, 2*hidden)
 
-        # Score each TS
+        # Score each TS (independent)
         scores = self.score_mlp(h_all).squeeze(-1)  # (n_graphs,)
+
+        # Pairwise TS comparison: learn relative stability
+        if self.use_pairwise:
+            rxn_batch = batch.rxn_batch
+            n_reactions = batch.n_reactions
+            readout_dim = h_all.size(1)
+
+            # Reshape to (n_reactions, 4, readout_dim)
+            h_per_rxn = torch.zeros(n_reactions, 4, readout_dim, device=h_all.device)
+            for r in range(n_reactions):
+                mask = (rxn_batch == r)
+                h_per_rxn[r] = h_all[mask]
+
+            # All pairwise comparisons: (n_reactions, 4, 3, readout_dim*3)
+            pair_scores_per_ts = torch.zeros(n_reactions, 4, device=h_all.device)
+            for i in range(4):
+                h_i = h_per_rxn[:, i, :]  # (n_reactions, readout_dim)
+                for j in range(4):
+                    if j == i:
+                        continue
+                    h_j = h_per_rxn[:, j, :]
+                    pair_feat = torch.cat([h_i, h_j, h_i - h_j], dim=1)
+                    pair_scores_per_ts[:, i] += self.pair_mlp(pair_feat).squeeze(-1)
+
+            # Map back to flat scores
+            pair_flat = torch.zeros_like(scores)
+            for r in range(n_reactions):
+                mask = (rxn_batch == r)
+                pair_flat[mask] = pair_scores_per_ts[r]
+
+            scores = scores + 0.5 * pair_flat
 
         # Mask dummy graphs
         is_dummy = batch.is_dummy.view(-1).float()
