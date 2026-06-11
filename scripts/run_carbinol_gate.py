@@ -48,11 +48,7 @@ def oof_ca_probs(X, lab):
     return probs
 
 
-def wmean(pairs):
-    if not pairs:
-        return float("nan")
-    a = np.array([p[0] for p in pairs]); w = np.array([p[1] for p in pairs])
-    return float(np.average(a, weights=w))
+from chiralaldol.utils import wmean  # noqa: E402
 
 
 def eval_variant(Xv, y, base, gold, splits):

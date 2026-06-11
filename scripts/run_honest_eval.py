@@ -34,11 +34,15 @@ def evans_mask():
     return (clean["auxiliary_type"] == "evans").values
 
 
+from chiralaldol.utils import wmean as _wmean_val  # noqa: E402
+
+
 def wmean(pairs):
+    """Weighted mean returning (value, total_weight)."""
     if not pairs:
         return float("nan"), 0
-    a = np.array([p[0] for p in pairs]); w = np.array([p[1] for p in pairs])
-    return float(np.average(a, weights=w)), int(w.sum())
+    w = np.array([p[1] for p in pairs])
+    return _wmean_val(pairs), int(w.sum())
 
 
 def eval_axis(X, y, base, gold, splits, kind):

@@ -55,3 +55,12 @@ VDW_RADII = {
 def get_vdw_radius(atomic_num: int) -> float:
     """Get van der Waals radius for an element."""
     return VDW_RADII.get(atomic_num, 1.70)
+
+
+def wmean(pairs):
+    """Weighted mean of (value, weight) pairs. Returns NaN if empty."""
+    if not pairs:
+        return float("nan")
+    a = np.array([p[0] for p in pairs])
+    w = np.array([p[1] for p in pairs])
+    return float(np.average(a, weights=w))

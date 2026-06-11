@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT))
 from chiralaldol.config import CLEAN_DIR, VALID_AUXILIARIES  # noqa: E402
 from chiralaldol.data_io import load_splits, prepare_Xy  # noqa: E402
 from chiralaldol.model_trainers import MajorityClassifier, train_et  # noqa: E402
+from chiralaldol.utils import wmean  # noqa: E402
 
 TARGETS = ["label_joint", "label_Ca", "label_Cb", "label_SA", "label_syn_anti_3d"]
 
@@ -60,12 +61,6 @@ def eval_target(target, evans_only=False):
         rows[kind].append((acc, len(te)))
         if kind == "tscv":
             rows["maj_tscv"].append((macc, len(te)))
-
-    def wmean(pairs):
-        if not pairs:
-            return float("nan")
-        a = np.array([p[0] for p in pairs]); w = np.array([p[1] for p in pairs])
-        return float(np.average(a, weights=w))
 
     return {
         "target": target,
